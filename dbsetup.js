@@ -35,9 +35,9 @@ const createTables = async () => {
         id SERIAL PRIMARY KEY,
         game_id INTEGER REFERENCES games(id),
         player_id INTEGER REFERENCES players(id),
-        played BOOLEAN,
-        scored BOOLEAN,
-        assisted BOOLEAN
+        played VARCHAR(4),
+        scored INTEGER,
+        assisted INTEGER
       );
     `);
 
