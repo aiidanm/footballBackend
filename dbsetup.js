@@ -12,33 +12,58 @@ const client = new Client({
 });
 
 // Function to create tables
+
+const dropTables = async () => {
+  try {
+    await client.query(`
+    DROP TABLE IF EXISTS player_game_stats CASCADE;
+    DROP TABLE IF EXISTS team_members CASCADE;
+    DROP TABLE IF EXISTS teams CASCADE;
+    DROP TABLE IF EXISTS games CASCADE;
+    DROP TABLE IF EXISTS players CASCADE;
+    `)
+  } catch(err){
+    console.log("error dropping tables", err)
+  }
+}
+
+
 const createTables = async () => {
   try {
     await client.query(`
-      CREATE TABLE IF NOT EXISTS players (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100),
-        preferred_position VARCHAR(50),
-        goals INTEGER DEFAULT 0,
-        assists INTEGER DEFAULT 0,
-        games_played INTEGER DEFAULT 0,
-        over_fence INTEGER DEFAULT 0,
-        wins INTEGER DEFAULT 0
-      );
+    CREATE TABLE players (
+        player_id SERIAL PRIMARY KEY,
+        player_name VARCHAR(100) NOT NULL UNIQUE
+    );
 
-      CREATE TABLE IF NOT EXISTS games (
-        id SERIAL PRIMARY KEY,
-        date DATE NOT NULL
-      );
+    CREATE TABLE games (
+        game_id SERIAL PRIMARY KEY,
+        game_date DATE NOT NULL UNIQUE,
+        team1_score INT,
+        team2_score INT,
+        winning_team_id INT REFERENCES teams(team_id)
+    );
 
-      CREATE TABLE IF NOT EXISTS player_game_stats (
-        id SERIAL PRIMARY KEY,
-        game_id INTEGER REFERENCES games(id),
-        player_id INTEGER REFERENCES players(id),
-        played VARCHAR(4),
-        scored INTEGER,
-        assisted INTEGER
-      );
+    CREATE TABLE teams (
+        team_id SERIAL PRIMARY KEY,
+        game_id INT NOT NULL REFERENCES games(game_id),
+        team_name VARCHAR(50) NOT NULL,
+        UNIQUE (game_id, team_name)
+    );
+
+    CREATE TABLE team_members (
+        team_id INT NOT NULL REFERENCES teams(team_id),
+        player_id INT NOT NULL REFERENCES players(player_id),
+        PRIMARY KEY (team_id, player_id)
+    );
+
+    CREATE TABLE player_game_stats (
+        game_id INT NOT NULL REFERENCES games(game_id),
+        player_id INT NOT NULL REFERENCES players(player_id),
+        goals_scored INT DEFAULT 0,
+        kicked_over_fence INT DEFAULT 0,
+        PRIMARY KEY (game_id, player_id)
+    );
     `);
 
     console.log("Tables created successfully or already exist.");
@@ -70,7 +95,7 @@ const setupDatabase = async () => {
   try {
     await client.connect(); // Connect to the database
     console.log('Connected to the database');
-
+    await dropTables()
     await createTables();
     await seedDatabase();
   } catch (err) {

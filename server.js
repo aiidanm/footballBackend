@@ -75,19 +75,88 @@ app.put('/players/:id', async (req, res) => {
 });
 
 // Example endpoint to get a player by ID
-app.get('/players/:id', async (req, res) => {
+app.get('/games/:id', async (req, res) => {
   const { id } = req.params;
+  const gameId = parseInt(id, 10);
+
+  if (isNaN(gameId)) {
+    return res.status(400).json({ error: 'Invalid game ID' });
+  }
+
   try {
-    const result = await client.query('SELECT * FROM players WHERE id = $1', [id]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Player not found' });
+    // First, get the basic game info
+    const gameResult = await client.query(`
+      SELECT game_id, game_date, team1_score, team2_score, winning_team_id
+      FROM games
+      WHERE game_id = $1
+    `, [gameId]);
+
+    if (gameResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Game not found' });
     }
-    res.json(result.rows[0]);
+
+    const gameInfo = gameResult.rows[0];
+
+    // Next, get team and player details for this game
+    const teamPlayersResult = await client.query(`
+      SELECT teams.team_id, teams.team_name,
+             players.player_id, players.player_name,
+             COALESCE(player_game_stats.goals_scored, 0) AS goals_scored,
+             COALESCE(player_game_stats.kicked_over_fence, 0) AS kicked_over_fence
+      FROM teams
+      JOIN team_members ON teams.team_id = team_members.team_id
+      JOIN players ON team_members.player_id = players.player_id
+      LEFT JOIN player_game_stats ON player_game_stats.game_id = teams.game_id
+                                  AND player_game_stats.player_id = players.player_id
+      WHERE teams.game_id = $1
+      ORDER BY teams.team_id, players.player_name;
+    `, [gameId]);
+
+    // Group players by team
+    const teamsMap = {};
+    for (const row of teamPlayersResult.rows) {
+      const { team_id, team_name, player_id, player_name, goals_scored, kicked_over_fence } = row;
+
+      if (!teamsMap[team_id]) {
+        teamsMap[team_id] = {
+          team_id,
+          team_name,
+          players: []
+        };
+      }
+
+      teamsMap[team_id].players.push({
+        player_id,
+        player_name,
+        goals_scored,
+        kicked_over_fence
+      });
+    }
+
+    const teamsArray = Object.values(teamsMap);
+
+    // Construct the final response
+    const responseData = {
+      game_id: gameInfo.game_id,
+      game_date: gameInfo.game_date,
+      team1_score: gameInfo.team1_score,
+      team2_score: gameInfo.team2_score,
+      winning_team_id: gameInfo.winning_team_id,
+      teams: teamsArray
+    };
+
+    res.json(responseData);
   } catch (err) {
-    console.error('Error fetching player', err.stack);
+    console.error('Error fetching game details:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+
+//endpoint to get a specific games stats
+app.get(`/games/:id`, async (req, res) => {
+  const gameId = parseInt(req.params.id, 10);  
+})
 
 // Example endpoint to record a new game
 app.post('/games', async (req, res) => {
