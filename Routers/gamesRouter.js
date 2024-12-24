@@ -12,7 +12,6 @@ module.exports = (client) => {
     }
 
     try {
-      // Basic game info
       const gameResult = await client.query(`
         SELECT game_id, game_date, team1_score, team2_score
         FROM games
@@ -39,7 +38,6 @@ module.exports = (client) => {
         ORDER BY teams.team_id, players.player_name;
       `, [gameId]);
 
-      // Group players by team
       const teamsMap = {};
       for (const row of teamPlayersResult.rows) {
         const { team_id, player_id, player_name, goals_scored, kicked_over_fence } = row;
@@ -61,7 +59,6 @@ module.exports = (client) => {
 
       const teamsArray = Object.values(teamsMap);
 
-      // Construct the final response
       const responseData = {
         game_id: gameInfo.game_id,
         game_date: gameInfo.game_date,
@@ -77,7 +74,6 @@ module.exports = (client) => {
     }
   });
 
-  // Record a new game
   router.post('/', async (req, res) => {
     const { date, players } = req.body;
     try {
@@ -101,42 +97,70 @@ module.exports = (client) => {
     }
   });
 
-  // Get a list of games
   router.get('/', async (req, res) => {
-  const limit = req.query.limit ? parseInt(req.query.limit) : 10;
-  try {
-    const result = await client.query(`
-      SELECT
-        g.game_id,
-        g.game_date,
-        g.team1_score,
-        g.team2_score,
-        t.team_id,
-        p.player_id,
-        p.player_name,
-        COALESCE(pgs.goals_scored, 0) AS goals_scored,
-        COALESCE(pgs.kicked_over_fence, 0) AS kicked_over_fence
-      FROM games AS g
-      JOIN teams AS t
-        ON g.game_id = t.game_id
-      JOIN team_members AS tm
-        ON t.team_id = tm.team_id
-      JOIN players AS p
-        ON tm.player_id = p.player_id
-      LEFT JOIN player_game_stats AS pgs
-        ON pgs.game_id = g.game_id AND pgs.player_id = p.player_id
-      ORDER BY
-        g.game_id,
-        t.team_id,
-        p.player_name
-      LIMIT $1;
-    `, [limit]);
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Error fetching games', err);
-    res.status(500).json({ error: err });
-  }
-});
+    const limit = req.query.limit ? parseInt(req.query.limit) : 10;
+    try {
+      const result = await client.query(`
+        SELECT
+          g.game_id,
+          g.game_date,
+          g.team1_score,
+          g.team2_score,
+          t.team_id,
+          p.player_id,
+          p.player_name,
+          COALESCE(pgs.goals_scored, 0) AS goals_scored,
+          COALESCE(pgs.kicked_over_fence, 0) AS kicked_over_fence
+        FROM games AS g
+        JOIN teams AS t
+          ON g.game_id = t.game_id
+        JOIN team_members AS tm
+          ON t.team_id = tm.team_id
+        JOIN players AS p
+          ON tm.player_id = p.player_id
+        LEFT JOIN player_game_stats AS pgs
+          ON pgs.game_id = g.game_id AND pgs.player_id = p.player_id
+        ORDER BY
+          g.game_id,
+          t.team_id,
+          p.player_name
+        LIMIT $1;
+      `, [limit]);
+  
+      const games = {};
+      result.rows.forEach(row => {
+        const { game_id, game_date, team1_score, team2_score, team_id, player_id, player_name, goals_scored, kicked_over_fence } = row;
+  
+        //creates the game object if it doesnt already exist for the id
+        if (!games[game_id]) {
+          games[game_id] = {
+            game_id,
+            game_date,
+            team1_score,
+            team2_score,
+            teams: {}
+          };
+        }
 
+
+        //if the games teams array doesnt include the current iterated teams id, it creates it and adds the players
+        if (!games[game_id].teams[team_id]) {
+          games[game_id].teams[team_id] = [];
+        }
+  
+        games[game_id].teams[team_id].push({
+          player_id,
+          player_name,
+          goals_scored,
+          kicked_over_fence
+        });
+      });
+  
+      res.json(Object.values(games));
+    } catch (err) {
+      console.error('Error fetching games', err);
+      res.status(500).json({ error: err });
+    }
+  });
+  
   return router;
-};

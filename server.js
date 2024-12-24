@@ -29,7 +29,6 @@ client.connect()
     }
   });
 
-// Mount the routes, passing in the client
 app.use('/players', PlayerRoutes(client));
 app.use('/games', GameRoutes(client));
 

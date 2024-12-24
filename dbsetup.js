@@ -1,7 +1,6 @@
 const { Client } = require("pg");
 require("dotenv").config();
 
-// Create a new PostgreSQL client using the connection string from Heroku
 const client = new Client({
   connectionString: process.env.DB_URL,
   ssl: {
@@ -20,7 +19,6 @@ const dropTables = async () => {
   }
 };
 
-// Function to create tables without foreign keys
 const createTables = async () => {
   try {
     await client.query(`
@@ -62,7 +60,6 @@ const createTables = async () => {
   }
 };
 
-// Function to add foreign key constraints
 const alterTables = async () => {
   try {
     await client.query(`
@@ -170,10 +167,9 @@ const seedTeamMembers = async () => {
   }
 };
 
-// Main function to setup the database
 const setupDatabase = async () => {
   try {
-    await client.connect(); // Connect to the database
+    await client.connect(); 
     console.log("Connected to the database");
     await dropTables();
     await createTables();
@@ -186,14 +182,12 @@ const setupDatabase = async () => {
   } catch (err) {
     console.error("Setup failed", err);
   } finally {
-    await client.end(); // Close the database connection
+    await client.end(); 
     console.log("Database connection closed");
   }
 };
 
-// Function to seed the database with initial data
 
-// Execute the setup
 setupDatabase()
   .then(() => console.log("Setup completed"))
   .catch((err) => console.error("Setup failed", err));

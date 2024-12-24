@@ -3,7 +3,6 @@ const express = require("express");
 const router = express.Router();
 
 module.exports = (client) => {
-  // Fetch all players
   router.get("/", async (req, res) => {
     try {
       const result = await client.query("SELECT * FROM players");
