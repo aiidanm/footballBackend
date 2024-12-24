@@ -3,8 +3,8 @@ const { Client } = require('pg');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 
-const PlayerRoutes = require('./routes/PlayerRoutes');
-const GameRoutes = require('./routes/GameRoutes');
+const PlayerRoutes = require('./Routers/playersRouter');
+const GameRoutes = require('./Routes/gamesRouter');
 
 const app = express();
 app.use(cors());
@@ -32,6 +32,7 @@ client.connect()
 // Mount the routes, passing in the client
 app.use('/players', PlayerRoutes(client));
 app.use('/games', GameRoutes(client));
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
