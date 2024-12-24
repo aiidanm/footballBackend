@@ -1,30 +1,34 @@
 // routes/GameRoutes.js
-const express = require('express');
+const express = require("express");
 const router = express.Router();
 
 module.exports = (client) => {
-  router.get('/:id', async (req, res) => {
+  router.get("/:id", async (req, res) => {
     const { id } = req.params;
     const gameId = parseInt(id, 10);
 
     if (isNaN(gameId)) {
-      return res.status(400).json({ error: 'Invalid game ID' });
+      return res.status(400).json({ error: "Invalid game ID" });
     }
 
     try {
-      const gameResult = await client.query(`
+      const gameResult = await client.query(
+        `
         SELECT game_id, game_date, team1_score, team2_score
         FROM games
         WHERE game_id = $1
-      `, [gameId]);
+      `,
+        [gameId]
+      );
 
       if (gameResult.rows.length === 0) {
-        return res.status(404).json({ error: 'Game not found' });
+        return res.status(404).json({ error: "Game not found" });
       }
 
       const gameInfo = gameResult.rows[0];
 
-      const teamPlayersResult = await client.query(`
+      const teamPlayersResult = await client.query(
+        `
         SELECT teams.team_id,
                players.player_id, players.player_name,
                COALESCE(player_game_stats.goals_scored, 0) AS goals_scored,
@@ -36,16 +40,24 @@ module.exports = (client) => {
                                     AND player_game_stats.player_id = players.player_id
         WHERE teams.game_id = $1
         ORDER BY teams.team_id, players.player_name;
-      `, [gameId]);
+      `,
+        [gameId]
+      );
 
       const teamsMap = {};
       for (const row of teamPlayersResult.rows) {
-        const { team_id, player_id, player_name, goals_scored, kicked_over_fence } = row;
+        const {
+          team_id,
+          player_id,
+          player_name,
+          goals_scored,
+          kicked_over_fence,
+        } = row;
 
         if (!teamsMap[team_id]) {
           teamsMap[team_id] = {
             team_id,
-            players: []
+            players: [],
           };
         }
 
@@ -53,7 +65,7 @@ module.exports = (client) => {
           player_id,
           player_name,
           goals_scored,
-          kicked_over_fence
+          kicked_over_fence,
         });
       }
 
@@ -64,43 +76,44 @@ module.exports = (client) => {
         game_date: gameInfo.game_date,
         team1_score: gameInfo.team1_score,
         team2_score: gameInfo.team2_score,
-        teams: teamsArray
+        teams: teamsArray,
       };
 
       res.json(responseData);
     } catch (err) {
-      console.error('Error fetching game details:', err.stack);
-      res.status(500).json({ error: 'Internal server error' });
+      console.error("Error fetching game details:", err.stack);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 
-  router.post('/', async (req, res) => {
+  router.post("/", async (req, res) => {
     const { date, players } = req.body;
     try {
       const gameResult = await client.query(
-        'INSERT INTO games (date) VALUES ($1) RETURNING *',
+        "INSERT INTO games (date) VALUES ($1) RETURNING *",
         [date]
       );
       const gameId = gameResult.rows[0].id;
 
       for (const player of players) {
         await client.query(
-          'INSERT INTO player_game_stats (game_id, player_id, played, scored, assisted) VALUES ($1, $2, $3, $4, $5)',
+          "INSERT INTO player_game_stats (game_id, player_id, played, scored, assisted) VALUES ($1, $2, $3, $4, $5)",
           [gameId, player.id, player.played, player.scored, player.assisted]
         );
       }
 
-      res.json({ message: 'Game recorded successfully' });
+      res.json({ message: "Game recorded successfully" });
     } catch (err) {
-      console.error('Error recording game', err.stack);
-      res.status(500).json({ error: 'Internal server error' });
+      console.error("Error recording game", err.stack);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 
-  router.get('/', async (req, res) => {
+  router.get("/", async (req, res) => {
     const limit = req.query.limit ? parseInt(req.query.limit) : 10;
     try {
-      const result = await client.query(`
+      const result = await client.query(
+        `
         SELECT
           g.game_id,
           g.game_date,
@@ -125,12 +138,24 @@ module.exports = (client) => {
           t.team_id,
           p.player_name
         LIMIT $1;
-      `, [limit]);
-  
+      `,
+        [limit]
+      );
+
       const games = {};
-      result.rows.forEach(row => {
-        const { game_id, game_date, team1_score, team2_score, team_id, player_id, player_name, goals_scored, kicked_over_fence } = row;
-  
+      result.rows.forEach((row) => {
+        const {
+          game_id,
+          game_date,
+          team1_score,
+          team2_score,
+          team_id,
+          player_id,
+          player_name,
+          goals_scored,
+          kicked_over_fence,
+        } = row;
+
         //creates the game object if it doesnt already exist for the id
         if (!games[game_id]) {
           games[game_id] = {
@@ -138,29 +163,28 @@ module.exports = (client) => {
             game_date,
             team1_score,
             team2_score,
-            teams: {}
+            teams: {},
           };
         }
-
 
         //if the games teams array doesnt include the current iterated teams id, it creates it and adds the players
         if (!games[game_id].teams[team_id]) {
           games[game_id].teams[team_id] = [];
         }
-  
+
         games[game_id].teams[team_id].push({
           player_id,
           player_name,
           goals_scored,
-          kicked_over_fence
+          kicked_over_fence,
         });
       });
-  
+
       res.json(Object.values(games));
     } catch (err) {
-      console.error('Error fetching games', err);
+      console.error("Error fetching games", err);
       res.status(500).json({ error: err });
     }
   });
-}
   return router;
+};
