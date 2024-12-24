@@ -8,6 +8,7 @@ module.exports = (client) => {
       const result = await client.query(`SELECT
     p.player_id,
     p.player_name,
+    p.preferred_position,
     SUM(COALESCE(pgs.goals_scored, 0)) AS total_goals_scored,
     SUM(COALESCE(pgs.kicked_over_fence, 0)) AS total_kicked_over_fence
 FROM
