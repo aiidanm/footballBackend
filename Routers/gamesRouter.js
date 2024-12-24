@@ -26,7 +26,7 @@ module.exports = (client) => {
       const gameInfo = gameResult.rows[0];
 
       const teamPlayersResult = await client.query(`
-        SELECT teams.team_id, teams.team_name,
+        SELECT teams.team_id,
                players.player_id, players.player_name,
                COALESCE(player_game_stats.goals_scored, 0) AS goals_scored,
                COALESCE(player_game_stats.kicked_over_fence, 0) AS kicked_over_fence
@@ -42,12 +42,11 @@ module.exports = (client) => {
       // Group players by team
       const teamsMap = {};
       for (const row of teamPlayersResult.rows) {
-        const { team_id, team_name, player_id, player_name, goals_scored, kicked_over_fence } = row;
+        const { team_id, player_id, player_name, goals_scored, kicked_over_fence } = row;
 
         if (!teamsMap[team_id]) {
           teamsMap[team_id] = {
             team_id,
-            team_name,
             players: []
           };
         }
