@@ -24,7 +24,8 @@ const createTables = async () => {
     await client.query(`
       CREATE TABLE players (
           player_id SERIAL PRIMARY KEY,
-          player_name VARCHAR(100) NOT NULL UNIQUE
+          player_name VARCHAR(100) NOT NULL UNIQUE,
+          preferred_position VARCHAR(20)
       );
 
       CREATE TABLE teams (
@@ -94,9 +95,9 @@ const alterTables = async () => {
 const seedPlayers = async () => {
   try {
     await client.query(`
-      INSERT INTO players (player_name) VALUES
-      ('Alice'), ('Bob'), ('Charlie'), ('David'), ('Emily'),
-      ('Frank'), ('Grace'), ('Henry'), ('Isabelle'), ('Jack')
+      INSERT INTO players (player_name, preferred_position) VALUES
+      ('Alice', 'defender'), ('Bob', 'defender'), ('Charlie', 'defender'), ('David', 'defender'), ('Emily', 'defender'),
+      ('Frank', 'defender'), ('Grace', 'defender'), ('Henry', 'defender'), ('Isabelle', 'defender'), ('Jack', 'defender')
       ON CONFLICT DO NOTHING;
     `);
     console.log("Players seeded successfully.");
@@ -169,24 +170,23 @@ const seedTeamMembers = async () => {
 
 const setupDatabase = async () => {
   try {
-    await client.connect(); 
+    await client.connect();
     console.log("Connected to the database");
     await dropTables();
     await createTables();
     await alterTables();
     await seedPlayers();
     await seedGames();
-    await seedTeams()
-    await seedTeamMembers()
-    await seedPlayerGameStats()
+    await seedTeams();
+    await seedTeamMembers();
+    await seedPlayerGameStats();
   } catch (err) {
     console.error("Setup failed", err);
   } finally {
-    await client.end(); 
+    await client.end();
     console.log("Database connection closed");
   }
 };
-
 
 setupDatabase()
   .then(() => console.log("Setup completed"))

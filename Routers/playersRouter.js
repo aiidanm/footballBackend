@@ -20,30 +20,31 @@ module.exports = (client) => {
     }
 
     try {
+      const playerResult = await client.query(
+        `SELECT * FROM players WHERE player_id = $1`,
+        [playerId]
+      );
+      if (playerResult.rows.length === 0) {
+        return res.status(404).json({ error: "player not found" });
+      }
 
-    
-    const playerResult = await client.query(
-      `SELECT * FROM players WHERE player_id = $1`,
-      [playerId]
-    );
-    if (playerResult.rows.length === 0) {
-      return res.status(404).json({ error: "player not found" });
+      const player = playerResult.rows[0];
+      const statsResult = await client.query(
+        `SELECT * FROM player_game_stats WHERE player_id = $1`,
+        [playerId]
+      );
+      const stats = statsResult.rows;
+
+      const responseData = {
+        ...player,
+        stats,
+      };
+
+      res.json(responseData);
+    } catch (err) {
+      console.error("error fetching player details", err.stack);
+      res.status(500).json({ error: "Internal Server Error 500" });
     }
-
-    const player = playerResult.rows[0];
-    const statsResult = await client.query(`SELECT * FROM player_game_stats WHERE player_id = $1`,[playerId])
-    const stats = statsResult.rows
-
-     const responseData = {
-       ...player,
-       stats,
-     };
-
-     res.json(responseData)
-     } catch(err){
-      console.error("error fetching player details", err.stack)
-      res.status(500).json({error: "Internal Server Error 500"})
-     }
   });
 
   // Add a new player
@@ -51,7 +52,7 @@ module.exports = (client) => {
     const { name, preferred_position } = req.body;
     try {
       const result = await client.query(
-        "INSERT INTO players (name, preferred_position) VALUES ($1, $2) RETURNING *",
+        "INSERT INTO players (player_name, preferred_position) VALUES ($1, $2) RETURNING *",
         [name, preferred_position]
       );
       res.json(result.rows[0]);
