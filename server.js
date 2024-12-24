@@ -4,7 +4,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 
 const PlayerRoutes = require('./Routers/playersRouter');
-const GameRoutes = require('./Routes/gamesRouter');
+const GameRoutes = require('./Routers/gamesRouter');
 
 const app = express();
 app.use(cors());
