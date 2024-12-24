@@ -162,5 +162,5 @@ module.exports = (client) => {
       res.status(500).json({ error: err });
     }
   });
-  
+}
   return router;
