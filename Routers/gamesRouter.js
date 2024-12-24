@@ -25,7 +25,6 @@ module.exports = (client) => {
 
       const gameInfo = gameResult.rows[0];
 
-      // Team and player details for this game
       const teamPlayersResult = await client.query(`
         SELECT teams.team_id, teams.team_name,
                players.player_id, players.player_name,
