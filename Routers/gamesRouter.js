@@ -136,7 +136,7 @@ module.exports = (client) => {
     `, [limit]);
     res.json(result.rows);
   } catch (err) {
-    console.error('Error fetching games', err.stack);
+    console.error('Error fetching games', err);
     res.status(500).json({ error: err });
   }
 });
