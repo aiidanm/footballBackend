@@ -5,7 +5,19 @@ const router = express.Router();
 module.exports = (client) => {
   router.get("/", async (req, res) => {
     try {
-      const result = await client.query("SELECT * FROM players");
+      const result = await client.query(`SELECT
+    p.player_id,
+    p.player_name,
+    SUM(COALESCE(pgs.goals_scored, 0)) AS total_goals_scored,
+    SUM(COALESCE(pgs.kicked_over_fence, 0)) AS total_kicked_over_fence
+FROM
+    players p
+LEFT JOIN
+    player_game_stats pgs ON p.player_id = pgs.player_id
+GROUP BY
+    p.player_id, p.player_name
+ORDER BY
+    p.player_id;`);
       res.json(result.rows);
     } catch (err) {
       console.error("Error fetching players", err.stack);
