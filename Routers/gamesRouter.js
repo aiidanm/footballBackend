@@ -14,7 +14,7 @@ module.exports = (client) => {
     try {
       // Basic game info
       const gameResult = await client.query(`
-        SELECT game_id, game_date, team1_score, team2_score, winning_team_id
+        SELECT game_id, game_date, team1_score, team2_score
         FROM games
         WHERE game_id = $1
       `, [gameId]);
@@ -69,7 +69,6 @@ module.exports = (client) => {
         game_date: gameInfo.game_date,
         team1_score: gameInfo.team1_score,
         team2_score: gameInfo.team2_score,
-        winning_team_id: gameInfo.winning_team_id,
         teams: teamsArray
       };
 
