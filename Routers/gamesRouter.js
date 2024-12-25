@@ -87,28 +87,82 @@ module.exports = (client) => {
   });
 
   router.post("/", async (req, res) => {
-    const { date, players } = req.body;
+    const { date, team1Score, team2Score, teams } = req.body;
+    // teams is expected to be { team1: [...], team2: [...] }
+  
     try {
+      // 1. Insert a new game and get the new game_id
       const gameResult = await client.query(
-        "INSERT INTO games (date) VALUES ($1) RETURNING *",
-        [date]
+        `INSERT INTO games (game_date, team1_score, team2_score)
+         VALUES ($1, $2, $3) 
+         RETURNING game_id;`,
+        [date, team1Score, team2Score]
       );
-      const gameId = gameResult.rows[0].id;
-
-      for (const player of players) {
+      const gameId = gameResult.rows[0].game_id;
+  
+      // 2. Insert two teams into the teams table (one for each side of the game)
+      //    Return the team_id for each insertion
+      const team1Result = await client.query(
+        `INSERT INTO teams (game_id)
+         VALUES ($1)
+         RETURNING team_id;`,
+        [gameId]
+      );
+      const team1Id = team1Result.rows[0].team_id;
+  
+      const team2Result = await client.query(
+        `INSERT INTO teams (game_id)
+         VALUES ($1)
+         RETURNING team_id;`,
+        [gameId]
+      );
+      const team2Id = team2Result.rows[0].team_id;
+  
+      // 3. Insert each player for team1 into team_members and their stats into player_game_stats
+      for (const player of teams.team1) {
+        const { player_id, goals_scored, kicked_over_fence } = player;
+  
+        // Insert player into team_members
         await client.query(
-          "INSERT INTO player_game_stats (game_id, player_id, played, scored, assisted) VALUES ($1, $2, $3, $4, $5)",
-          [gameId, player.id, player.played, player.scored, player.assisted]
+          `INSERT INTO team_members (team_id, player_id)
+           VALUES ($1, $2);`,
+          [team1Id, player_id]
+        );
+  
+        // Insert player stats into player_game_stats
+        await client.query(
+          `INSERT INTO player_game_stats (game_id, player_id, goals_scored, kicked_over_fence)
+           VALUES ($1, $2, $3, $4);`,
+          [gameId, player_id, goals_scored || 0, kicked_over_fence || 0]
         );
       }
-
-      res.json({ message: "Game recorded successfully" });
+  
+      // 4. Same for team2
+      for (const player of teams.team2) {
+        const { player_id, goals_scored, kicked_over_fence } = player;
+  
+        // Insert player into team_members
+        await client.query(
+          `INSERT INTO team_members (team_id, player_id)
+           VALUES ($1, $2);`,
+          [team2Id, player_id]
+        );
+  
+        // Insert player stats into player_game_stats
+        await client.query(
+          `INSERT INTO player_game_stats (game_id, player_id, goals_scored, kicked_over_fence)
+           VALUES ($1, $2, $3, $4);`,
+          [gameId, player_id, goals_scored || 0, kicked_over_fence || 0]
+        );
+      }
+  
+      res.json({ message: "Game recorded successfully", gameId });
     } catch (err) {
-      console.error("Error recording game", err.stack);
+      console.error("Error recording game:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   });
-
+  
   router.get("/", async (req, res) => {
     const limit = req.query.limit ? parseInt(req.query.limit) : 10;
     try {

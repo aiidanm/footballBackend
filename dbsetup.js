@@ -110,7 +110,7 @@ const seedTeams = async () => {
   try {
     await client.query(`
       INSERT INTO teams (game_id) VALUES
-      (1), (1), (2), (2) -- Two teams per game
+      (1), (1), (2), (2)
       ON CONFLICT DO NOTHING;
     `);
     console.log("Teams seeded successfully.");
@@ -129,7 +129,7 @@ const seedGames = async () => {
 
     await client.query(`
       INSERT INTO games (game_date, team1_score, team2_score)
-      VALUES ('2024-12-19', 2, 4) -- Assuming Team D has team_id 4
+      VALUES ('2024-12-19', 2, 4)
       ON CONFLICT DO NOTHING;
     `);
     console.log("Games seeded successfully.");
