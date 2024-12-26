@@ -87,6 +87,7 @@ module.exports = (client) => {
   });
 
   router.post("/", async (req, res) => {
+    console.log(req.body)
     const { date, team1Score, team2Score, teams } = req.body;
     // teams is expected to be { team1: [...], team2: [...] }
   
