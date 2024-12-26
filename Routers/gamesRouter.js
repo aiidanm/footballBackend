@@ -234,7 +234,6 @@ module.exports = (client) => {
           kicked_over_fence,
         });
       });
-      console.log(games);
       res.json(Object.values(games));
     } catch (err) {
       console.error("Error fetching games", err);
