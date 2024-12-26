@@ -165,7 +165,6 @@ module.exports = (client) => {
   });
 
   router.get("/", async (req, res) => {
-    const limit = req.query.limit ? parseInt(req.query.limit) : 10;
     try {
       const result = await client.query(
         `
@@ -191,13 +190,11 @@ module.exports = (client) => {
         ORDER BY
           g.game_id,
           t.team_id,
-          p.player_name
-        LIMIT $1;
-      `,
-        [limit]
+          p.player_name`
       );
 
       const games = {};
+      console.log(result)
       result.rows.forEach((row) => {
         const {
           game_id,
