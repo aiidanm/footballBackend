@@ -35,7 +35,7 @@ const createTables = async () => {
 
       CREATE TABLE games (
           game_id SERIAL PRIMARY KEY,
-          game_date DATE NOT NULL UNIQUE,
+          game_date DATE NOT NULL,
           team1_score INT,
           team2_score INT
       );
@@ -96,8 +96,10 @@ const seedPlayers = async () => {
   try {
     await client.query(`
       INSERT INTO players (player_name, preferred_position) VALUES
-      ('Alice', 'defender'), ('Bob', 'defender'), ('Charlie', 'defender'), ('David', 'defender'), ('Emily', 'defender'),
-      ('Frank', 'defender'), ('Grace', 'defender'), ('Henry', 'defender'), ('Isabelle', 'defender'), ('Jack', 'defender')
+      ('Stu', 'GK'), ('Skelton', 'FW'), ('Ste A', 'DF'), ('Luke', 'MF'), ('Andy G', 'MF'),
+      ('Gotham', 'MF'), ('DJ', 'DF'), ('Aidan', 'DF'), ('Buzz', 'MF'), ('Lee', 'FW'),
+      ('Simon', 'FW'), ('Sam S', 'FW'), ('Matteo', 'DF'), ('Dan O', 'FW'), ('Will C', 'FW'),
+      ('Josh', 'MF'), ('George', 'MF'), ('Connor', 'GK'), ('louis', 'MF'), ('Mo', 'DF'), ('Joe Nick', 'FW')
       ON CONFLICT DO NOTHING;
     `);
     console.log("Players seeded successfully.");
