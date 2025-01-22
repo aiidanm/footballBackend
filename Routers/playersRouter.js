@@ -3,23 +3,67 @@ const express = require("express");
 const router = express.Router();
 
 module.exports = (client) => {
-  router.get("/", async (req, res) => {
+//   router.get("/", async (req, res) => {
+//     try {
+//       const result = await client.query(`SELECT
+//     pgd.player_id,
+//     pgd.player_name,
+//     SUM(pgd.goals_scored) AS total_goals_scored,
+//     SUM(pgd.kicked_over_fence) AS total_kicked_over_fence,
+//     SUM(pgd.is_winning_team) AS total_wins,
+//     COUNT(DISTINCT(pgd.game_id)) AS games_played
+// FROM
+//     (
+//     SELECT
+//         p.player_id,
+//         p.player_name,
+//         g.game_id,
+//         g.game_date,
+//         tm.team_id,
+//         COALESCE(pgs.goals_scored, 0) AS goals_scored,
+//         COALESCE(pgs.kicked_over_fence, 0) AS kicked_over_fence,
+//         CASE
+//             WHEN (g.team1_score > g.team2_score AND tm.team_id = (SELECT team_id FROM teams WHERE game_id = g.game_id LIMIT 1)) OR
+//                  (g.team2_score > g.team1_score AND tm.team_id = (SELECT team_id FROM teams WHERE game_id = g.game_id ORDER BY team_id DESC LIMIT 1)) THEN 1
+//             ELSE 0
+//         END AS is_winning_team
+//     FROM
+//         players p
+//     JOIN
+//         team_members tm ON p.player_id = tm.player_id
+//     JOIN
+//         teams t ON tm.team_id = t.team_id
+//     JOIN
+//         games g ON t.game_id = g.game_id
+//     LEFT JOIN
+//         player_game_stats pgs ON p.player_id = pgs.player_id AND g.game_id = pgs.game_id
+//   ) AS pgd
+// GROUP BY
+//     pgd.player_name,
+//     pgd.player_id;
+// `);
+//       res.json(result.rows);
+//     } catch (err) {
+//       console.error("Error fetching players", err.stack);
+//       res.status(500).json({ error: "Internal server error" });
+//     }
+//   });
+
+router.get("/", async (req, res) => {
     try {
       const result = await client.query(`SELECT
-    pgd.player_id,
-    pgd.player_name,
-    SUM(pgd.goals_scored) AS total_goals_scored,
-    SUM(pgd.kicked_over_fence) AS total_kicked_over_fence,
-    SUM(pgd.is_winning_team) AS total_wins,
-    COUNT(DISTINCT(pgd.game_id)) AS games_played
+    p.player_id,
+    p.player_name,
+    COALESCE(SUM(pgd.goals_scored), 0) AS total_goals_scored,
+    COALESCE(SUM(pgd.kicked_over_fence), 0) AS total_kicked_over_fence,
+    COALESCE(SUM(pgd.is_winning_team), 0) AS total_wins,
+    COALESCE(COUNT(DISTINCT pgd.game_id), 0) AS games_played
 FROM
-    (
+    players p
+LEFT JOIN (
     SELECT
         p.player_id,
-        p.player_name,
         g.game_id,
-        g.game_date,
-        tm.team_id,
         COALESCE(pgs.goals_scored, 0) AS goals_scored,
         COALESCE(pgs.kicked_over_fence, 0) AS kicked_over_fence,
         CASE
@@ -29,18 +73,18 @@ FROM
         END AS is_winning_team
     FROM
         players p
-    JOIN
+    LEFT JOIN
         team_members tm ON p.player_id = tm.player_id
-    JOIN
+    LEFT JOIN
         teams t ON tm.team_id = t.team_id
-    JOIN
+    LEFT JOIN
         games g ON t.game_id = g.game_id
     LEFT JOIN
         player_game_stats pgs ON p.player_id = pgs.player_id AND g.game_id = pgs.game_id
-  ) AS pgd
+) pgd ON p.player_id = pgd.player_id
 GROUP BY
-    pgd.player_name,
-    pgd.player_id;
+    p.player_id,
+    p.player_name;
 `);
       res.json(result.rows);
     } catch (err) {
