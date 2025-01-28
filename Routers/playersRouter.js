@@ -110,7 +110,32 @@ GROUP BY
 
       const player = playerResult.rows[0];
       const statsResult = await client.query(
-        `SELECT * FROM player_game_stats WHERE player_id = $1`,
+        `SELECT * FROM
+    players p
+LEFT JOIN (
+    SELECT
+        p.player_id,
+        g.game_id,
+        COALESCE(pgs.goals_scored, 0) AS goals_scored,
+        COALESCE(pgs.kicked_over_fence, 0) AS kicked_over_fence,
+        CASE
+            WHEN (g.team1_score > g.team2_score AND tm.team_id = (SELECT team_id FROM teams WHERE game_id = g.game_id LIMIT 1)) OR
+                 (g.team2_score > g.team1_score AND tm.team_id = (SELECT team_id FROM teams WHERE game_id = g.game_id ORDER BY team_id DESC LIMIT 1)) THEN 1
+            ELSE 0
+        END AS is_winning_team
+    FROM
+        players p
+    LEFT JOIN
+        team_members tm ON p.player_id = tm.player_id
+    LEFT JOIN
+        teams t ON tm.team_id = t.team_id
+    LEFT JOIN
+        games g ON t.game_id = g.game_id
+    LEFT JOIN
+        player_game_stats pgs ON p.player_id = pgs.player_id AND g.game_id = pgs.game_id
+) pgd ON p.player_id = pgd.player_id
+WHERE 
+  p.player_id = $1;`,
         [playerId]
       );
       const stats = statsResult.rows;

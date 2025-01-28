@@ -178,10 +178,7 @@ const setupDatabase = async () => {
     await createTables();
     await alterTables();
     await seedPlayers();
-    await seedGames();
-    await seedTeams();
-    await seedTeamMembers();
-    await seedPlayerGameStats();
+
   } catch (err) {
     console.error("Setup failed", err);
   } finally {
