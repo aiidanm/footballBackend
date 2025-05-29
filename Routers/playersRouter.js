@@ -1,8 +1,8 @@
 // routes/PlayerRoutes.js
-const express = require("express");
+import express from "express";
 const router = express.Router();
 
-module.exports = (client) => {
+const PlayerRoutes = (client) => {
   //   router.get("/", async (req, res) => {
   //     try {
   //       const result = await client.query(`SELECT
@@ -203,3 +203,5 @@ WHERE
 
   return router;
 };
+
+export default PlayerRoutes

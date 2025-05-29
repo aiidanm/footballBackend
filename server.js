@@ -1,10 +1,14 @@
-const express = require("express");
-const { Client } = require("pg");
-const cors = require("cors");
-const bodyParser = require("body-parser");
+// app.js (or index.js)
 
-const PlayerRoutes = require("./Routers/playersRouter");
-const GameRoutes = require("./Routers/gamesRouter");
+import express from "express";
+import pkg from "pg";
+const { Client } = pkg;
+import cors from "cors";
+import bodyParser from "body-parser";
+
+import PlayerRoutes from "./Routers/playersRouter.js";
+import GameRoutes from "./Routers/gamesRouter.js";
+import AiRoutes from "./Routers/AiRouter.js";
 
 const app = express();
 app.use(cors({ origin: `*` }));
@@ -34,8 +38,9 @@ client
 
 app.use("/players", PlayerRoutes(client));
 app.use("/games", GameRoutes(client));
+app.use("/ai", AiRoutes(client));
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 6000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });

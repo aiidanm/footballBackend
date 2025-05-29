@@ -1,8 +1,8 @@
 // routes/GameRoutes.js
-const express = require("express");
+import express from "express";
 const router = express.Router();
 
-module.exports = (client) => {
+const GamesRouter = (client) => {
   router.get("/:id", async (req, res) => {
     const { id } = req.params;
     const gameId = parseInt(id, 10);
@@ -98,7 +98,6 @@ module.exports = (client) => {
       );
       const gameId = gameResult.rows[0].game_id;
 
-      
       const team1Result = await client.query(
         `INSERT INTO teams (game_id)
          VALUES ($1)
@@ -115,17 +114,14 @@ module.exports = (client) => {
       );
       const team2Id = team2Result.rows[0].team_id;
 
-
       for (const player of teams.team1) {
         const { player_id, goals_scored, kicked_over_fence } = player;
 
-    
         await client.query(
           `INSERT INTO team_members (team_id, player_id)
            VALUES ($1, $2);`,
           [team1Id, player_id]
         );
-
 
         await client.query(
           `INSERT INTO player_game_stats (game_id, player_id, goals_scored, kicked_over_fence)
@@ -134,18 +130,15 @@ module.exports = (client) => {
         );
       }
 
-      
       for (const player of teams.team2) {
         const { player_id, goals_scored, kicked_over_fence } = player;
 
-      
         await client.query(
           `INSERT INTO team_members (team_id, player_id)
            VALUES ($1, $2);`,
           [team2Id, player_id]
         );
 
-       
         await client.query(
           `INSERT INTO player_game_stats (game_id, player_id, goals_scored, kicked_over_fence)
            VALUES ($1, $2, $3, $4);`,
@@ -234,3 +227,5 @@ module.exports = (client) => {
   });
   return router;
 };
+
+export default GamesRouter;
