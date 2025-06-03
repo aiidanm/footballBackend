@@ -1,11 +1,9 @@
-// app.js (or index.js)
-
 import express from "express";
 import pkg from "pg";
 const { Client } = pkg;
 import cors from "cors";
 import bodyParser from "body-parser";
-
+import "dotenv/config";
 import PlayerRoutes from "./Routers/playersRouter.js";
 import GameRoutes from "./Routers/gamesRouter.js";
 import AiRoutes from "./Routers/AiRouter.js";
@@ -40,7 +38,7 @@ app.use("/players", PlayerRoutes(client));
 app.use("/games", GameRoutes(client));
 app.use("/ai", AiRoutes(client));
 
-const PORT = process.env.PORT || 6000;
+const PORT = process.env.PORT || 5142;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
