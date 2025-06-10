@@ -2,6 +2,8 @@ import express, { response } from "express";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
 import { Console } from "console";
+import { initializeApp } from "firebase-admin/app";
+const verifyToken = require("./authMiddleware");
 
 const router = express.Router();
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -9,8 +11,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const prePrompt = fs.readFileSync("./prePrompt.txt", "utf-8");
 
 const AiRoutes = (client) => {
-  router.post("/", async (req, res) => {
-
+  router.post("/", verifyToken, async (req, res) => {
     const { prompt } = req.body;
 
     if (!prompt) {
@@ -19,7 +20,7 @@ const AiRoutes = (client) => {
         .json({ error: "Prompt is required in the request body." });
     }
 
-    const currentDate = new Date().toISOString().split("T")[0]; // Format as 'YYYY-MM-DD'
+    const currentDate = new Date().toISOString().split("T")[0]; 
     const finalPrompt = prePrompt
       .replace("{current_date_from_your_server}", currentDate)
       .replace("{user_question_from_frontend}", prompt);
