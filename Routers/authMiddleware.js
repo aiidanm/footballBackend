@@ -1,4 +1,4 @@
-const admin = require("./firebaseAdmin");
+import admin from "../firebaseAdmin.js";
 
 async function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -11,12 +11,12 @@ async function verifyToken(req, res, next) {
 
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
-    req.user = decodedToken; 
-    next(); 
+    req.user = decodedToken;
+    next();
   } catch (error) {
     console.error("Error while verifying Firebase ID token:", error);
     res.status(403).send("Unauthorized");
   }
 }
 
-module.exports = verifyToken;
+export default verifyToken;
