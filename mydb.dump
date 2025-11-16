@@ -1,0 +1,1897 @@
+--
+-- PostgreSQL database dump
+--
+
+\restrict 4pKi1L5KMqIFqfbku3kcCPtDs2tTNyo7VqFkY3dvPdXfKaWJm8aKezwWZkwvHci
+
+-- Dumped from database version 16.8
+-- Dumped by pg_dump version 18.1 (Homebrew)
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: _heroku; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA _heroku;
+
+
+--
+-- Name: public; Type: SCHEMA; Schema: -; Owner: -
+--
+
+-- *not* creating schema, since initdb creates it
+
+
+--
+-- Name: pg_stat_statements; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION pg_stat_statements; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION pg_stat_statements IS 'track planning and execution statistics of all SQL statements executed';
+
+
+--
+-- Name: create_ext(); Type: FUNCTION; Schema: _heroku; Owner: -
+--
+
+CREATE FUNCTION _heroku.create_ext() RETURNS event_trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+
+DECLARE
+
+  schemaname TEXT;
+  databaseowner TEXT;
+
+  r RECORD;
+
+BEGIN
+
+  IF tg_tag = 'CREATE EXTENSION' and current_user != 'rds_superuser' THEN
+    FOR r IN SELECT * FROM pg_catalog.pg_event_trigger_ddl_commands()
+    LOOP
+        CONTINUE WHEN r.command_tag != 'CREATE EXTENSION' OR r.object_type != 'extension';
+
+        schemaname = (
+            SELECT n.nspname
+            FROM pg_catalog.pg_extension AS e
+            INNER JOIN pg_catalog.pg_namespace AS n
+            ON e.extnamespace = n.oid
+            WHERE e.oid = r.objid
+        );
+
+        databaseowner = (
+            SELECT pg_catalog.pg_get_userbyid(d.datdba)
+            FROM pg_catalog.pg_database d
+            WHERE d.datname = pg_catalog.current_database()
+        );
+        --RAISE NOTICE 'Record for event trigger %, objid: %,tag: %, current_user: %, schema: %, database_owenr: %', r.object_identity, r.objid, tg_tag, current_user, schemaname, databaseowner;
+        IF r.object_identity = 'address_standardizer_data_us' THEN
+            PERFORM _heroku.grant_table_if_exists(schemaname, 'SELECT, UPDATE, INSERT, DELETE', databaseowner, 'us_gaz');
+            PERFORM _heroku.grant_table_if_exists(schemaname, 'SELECT, UPDATE, INSERT, DELETE', databaseowner, 'us_lex');
+            PERFORM _heroku.grant_table_if_exists(schemaname, 'SELECT, UPDATE, INSERT, DELETE', databaseowner, 'us_rules');
+        ELSIF r.object_identity = 'amcheck' THEN
+            EXECUTE pg_catalog.format('GRANT EXECUTE ON FUNCTION %I.bt_index_check TO %I;', schemaname, databaseowner);
+            EXECUTE pg_catalog.format('GRANT EXECUTE ON FUNCTION %I.bt_index_parent_check TO %I;', schemaname, databaseowner);
+        ELSIF r.object_identity = 'dict_int' THEN
+            EXECUTE pg_catalog.format('ALTER TEXT SEARCH DICTIONARY %I.intdict OWNER TO %I;', schemaname, databaseowner);
+        ELSIF r.object_identity = 'pg_partman' THEN
+            PERFORM _heroku.grant_table_if_exists(schemaname, 'SELECT, UPDATE, INSERT, DELETE', databaseowner, 'part_config');
+            PERFORM _heroku.grant_table_if_exists(schemaname, 'SELECT, UPDATE, INSERT, DELETE', databaseowner, 'part_config_sub');
+            PERFORM _heroku.grant_table_if_exists(schemaname, 'SELECT, UPDATE, INSERT, DELETE', databaseowner, 'custom_time_partitions');
+        ELSIF r.object_identity = 'pg_stat_statements' THEN
+            EXECUTE pg_catalog.format('GRANT EXECUTE ON FUNCTION %I.pg_stat_statements_reset TO %I;', schemaname, databaseowner);
+        ELSIF r.object_identity = 'postgis' THEN
+            PERFORM _heroku.postgis_after_create();
+        ELSIF r.object_identity = 'postgis_raster' THEN
+            PERFORM _heroku.postgis_after_create();
+            PERFORM _heroku.grant_table_if_exists(schemaname, 'SELECT', databaseowner, 'raster_columns');
+            PERFORM _heroku.grant_table_if_exists(schemaname, 'SELECT', databaseowner, 'raster_overviews');
+        ELSIF r.object_identity = 'postgis_topology' THEN
+            PERFORM _heroku.postgis_after_create();
+            EXECUTE pg_catalog.format('GRANT USAGE ON SCHEMA topology TO %I;', databaseowner);
+            EXECUTE pg_catalog.format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA topology TO %I;', databaseowner);
+            PERFORM _heroku.grant_table_if_exists('topology', 'SELECT, UPDATE, INSERT, DELETE', databaseowner);
+            EXECUTE pg_catalog.format('GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA topology TO %I;', databaseowner);
+        ELSIF r.object_identity = 'postgis_tiger_geocoder' THEN
+            PERFORM _heroku.postgis_after_create();
+            EXECUTE pg_catalog.format('GRANT USAGE ON SCHEMA tiger TO %I;', databaseowner);
+            EXECUTE pg_catalog.format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA tiger TO %I;', databaseowner);
+            PERFORM _heroku.grant_table_if_exists('tiger', 'SELECT, UPDATE, INSERT, DELETE', databaseowner);
+
+            EXECUTE pg_catalog.format('GRANT USAGE ON SCHEMA tiger_data TO %I;', databaseowner);
+            EXECUTE pg_catalog.format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA tiger_data TO %I;', databaseowner);
+            PERFORM _heroku.grant_table_if_exists('tiger_data', 'SELECT, UPDATE, INSERT, DELETE', databaseowner);
+        END IF;
+    END LOOP;
+  END IF;
+END;
+$$;
+
+
+--
+-- Name: drop_ext(); Type: FUNCTION; Schema: _heroku; Owner: -
+--
+
+CREATE FUNCTION _heroku.drop_ext() RETURNS event_trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+
+DECLARE
+
+  schemaname TEXT;
+  databaseowner TEXT;
+
+  r RECORD;
+
+BEGIN
+
+  IF tg_tag = 'DROP EXTENSION' and current_user != 'rds_superuser' THEN
+    FOR r IN SELECT * FROM pg_catalog.pg_event_trigger_dropped_objects()
+    LOOP
+      CONTINUE WHEN r.object_type != 'extension';
+
+      databaseowner = (
+            SELECT pg_catalog.pg_get_userbyid(d.datdba)
+            FROM pg_catalog.pg_database d
+            WHERE d.datname = pg_catalog.current_database()
+      );
+
+      --RAISE NOTICE 'Record for event trigger %, objid: %,tag: %, current_user: %, database_owner: %, schemaname: %', r.object_identity, r.objid, tg_tag, current_user, databaseowner, r.schema_name;
+
+      IF r.object_identity = 'postgis_topology' THEN
+          EXECUTE pg_catalog.format('DROP SCHEMA IF EXISTS topology');
+      END IF;
+    END LOOP;
+
+  END IF;
+END;
+$$;
+
+
+--
+-- Name: extension_before_drop(); Type: FUNCTION; Schema: _heroku; Owner: -
+--
+
+CREATE FUNCTION _heroku.extension_before_drop() RETURNS event_trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+
+DECLARE
+
+  query TEXT;
+
+BEGIN
+  query = (SELECT pg_catalog.current_query());
+
+  -- RAISE NOTICE 'executing extension_before_drop: tg_event: %, tg_tag: %, current_user: %, session_user: %, query: %', tg_event, tg_tag, current_user, session_user, query;
+  IF tg_tag = 'DROP EXTENSION' and not pg_catalog.pg_has_role(session_user, 'rds_superuser', 'MEMBER') THEN
+    -- DROP EXTENSION [ IF EXISTS ] name [, ...] [ CASCADE | RESTRICT ]
+    IF (pg_catalog.regexp_match(query, 'DROP\s+EXTENSION\s+(IF\s+EXISTS)?.*(plpgsql)', 'i') IS NOT NULL) THEN
+      RAISE EXCEPTION 'The plpgsql extension is required for database management and cannot be dropped.';
+    END IF;
+  END IF;
+END;
+$$;
+
+
+--
+-- Name: grant_table_if_exists(text, text, text, text); Type: FUNCTION; Schema: _heroku; Owner: -
+--
+
+CREATE FUNCTION _heroku.grant_table_if_exists(alias_schemaname text, grants text, databaseowner text, alias_tablename text DEFAULT NULL::text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+
+BEGIN
+
+  IF alias_tablename IS NULL THEN
+    EXECUTE pg_catalog.format('GRANT %s ON ALL TABLES IN SCHEMA %I TO %I;', grants, alias_schemaname, databaseowner);
+  ELSE
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE pg_tables.schemaname = alias_schemaname AND pg_tables.tablename = alias_tablename) THEN
+      EXECUTE pg_catalog.format('GRANT %s ON TABLE %I.%I TO %I;', grants, alias_schemaname, alias_tablename, databaseowner);
+    END IF;
+  END IF;
+END;
+$$;
+
+
+--
+-- Name: postgis_after_create(); Type: FUNCTION; Schema: _heroku; Owner: -
+--
+
+CREATE FUNCTION _heroku.postgis_after_create() RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    schemaname TEXT;
+    databaseowner TEXT;
+BEGIN
+    schemaname = (
+        SELECT n.nspname
+        FROM pg_catalog.pg_extension AS e
+        INNER JOIN pg_catalog.pg_namespace AS n ON e.extnamespace = n.oid
+        WHERE e.extname = 'postgis'
+    );
+    databaseowner = (
+        SELECT pg_catalog.pg_get_userbyid(d.datdba)
+        FROM pg_catalog.pg_database d
+        WHERE d.datname = pg_catalog.current_database()
+    );
+
+    EXECUTE pg_catalog.format('GRANT EXECUTE ON FUNCTION %I.st_tileenvelope TO %I;', schemaname, databaseowner);
+    EXECUTE pg_catalog.format('GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE %I.spatial_ref_sys TO %I;', schemaname, databaseowner);
+END;
+$$;
+
+
+--
+-- Name: validate_extension(); Type: FUNCTION; Schema: _heroku; Owner: -
+--
+
+CREATE FUNCTION _heroku.validate_extension() RETURNS event_trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+
+DECLARE
+
+  schemaname TEXT;
+  r RECORD;
+
+BEGIN
+
+  IF tg_tag = 'CREATE EXTENSION' and current_user != 'rds_superuser' THEN
+    FOR r IN SELECT * FROM pg_catalog.pg_event_trigger_ddl_commands()
+    LOOP
+      CONTINUE WHEN r.command_tag != 'CREATE EXTENSION' OR r.object_type != 'extension';
+
+      schemaname = (
+        SELECT n.nspname
+        FROM pg_catalog.pg_extension AS e
+        INNER JOIN pg_catalog.pg_namespace AS n
+        ON e.extnamespace = n.oid
+        WHERE e.oid = r.objid
+      );
+
+      IF schemaname = '_heroku' THEN
+        RAISE EXCEPTION 'Creating extensions in the _heroku schema is not allowed';
+      END IF;
+    END LOOP;
+  END IF;
+END;
+$$;
+
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: games; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.games (
+    game_id integer NOT NULL,
+    game_date date NOT NULL,
+    team1_score integer,
+    team2_score integer
+);
+
+
+--
+-- Name: games_game_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.games_game_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: games_game_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.games_game_id_seq OWNED BY public.games.game_id;
+
+
+--
+-- Name: player_game_stats; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.player_game_stats (
+    game_id integer NOT NULL,
+    player_id integer NOT NULL,
+    goals_scored integer DEFAULT 0,
+    kicked_over_fence integer DEFAULT 0
+);
+
+
+--
+-- Name: players; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.players (
+    player_id integer NOT NULL,
+    player_name character varying(100) NOT NULL,
+    preferred_position character varying(20)
+);
+
+
+--
+-- Name: players_player_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.players_player_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: players_player_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.players_player_id_seq OWNED BY public.players.player_id;
+
+
+--
+-- Name: team_members; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.team_members (
+    team_id integer NOT NULL,
+    player_id integer NOT NULL
+);
+
+
+--
+-- Name: teams; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.teams (
+    team_id integer NOT NULL,
+    game_id integer NOT NULL
+);
+
+
+--
+-- Name: teams_team_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.teams_team_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: teams_team_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.teams_team_id_seq OWNED BY public.teams.team_id;
+
+
+--
+-- Name: games game_id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.games ALTER COLUMN game_id SET DEFAULT nextval('public.games_game_id_seq'::regclass);
+
+
+--
+-- Name: players player_id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.players ALTER COLUMN player_id SET DEFAULT nextval('public.players_player_id_seq'::regclass);
+
+
+--
+-- Name: teams team_id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.teams ALTER COLUMN team_id SET DEFAULT nextval('public.teams_team_id_seq'::regclass);
+
+
+--
+-- Data for Name: games; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.games (game_id, game_date, team1_score, team2_score) FROM stdin;
+1	2025-01-13	6	7
+2	2025-01-06	11	1
+34	2025-01-20	6	4
+67	2025-01-27	2	6
+100	2025-02-03	6	3
+133	2025-02-10	5	9
+166	2025-02-17	6	10
+167	2025-02-24	5	2
+168	2025-03-03	4	5
+169	2025-03-10	9	7
+170	2025-03-17	7	7
+171	2025-03-24	4	2
+172	2025-03-31	3	8
+173	2025-04-07	4	9
+174	2025-04-14	5	3
+175	2025-04-28	6	7
+176	2025-05-12	8	6
+199	2025-05-19	2	3
+200	2025-06-02	2	5
+201	2025-06-09	9	7
+202	2025-06-16	8	4
+203	2025-06-30	8	6
+204	2025-07-07	13	4
+205	2025-07-14	7	4
+206	2025-07-21	6	3
+232	2025-08-04	9	8
+233	2025-08-11	4	2
+234	2025-08-18	7	8
+235	2025-09-01	6	10
+236	2025-07-28	4	6
+237	2025-09-08	3	7
+238	2025-09-22	2	3
+239	2025-09-29	9	3
+240	2025-10-06	2	6
+241	2025-10-13	4	6
+242	2025-10-27	3	1
+243	2025-11-03	7	7
+265	2025-11-10	8	2
+\.
+
+
+--
+-- Data for Name: player_game_stats; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.player_game_stats (game_id, player_id, goals_scored, kicked_over_fence) FROM stdin;
+1	1	0	0
+1	8	1	0
+1	9	0	0
+1	12	4	0
+1	13	0	0
+1	14	0	0
+1	15	0	0
+1	23	1	0
+1	2	1	0
+1	3	0	0
+1	5	0	0
+1	7	0	0
+1	10	2	0
+1	11	3	0
+1	17	1	0
+1	22	0	0
+2	1	0	0
+2	2	2	0
+2	6	1	0
+2	8	0	0
+2	9	1	0
+2	13	2	0
+2	15	1	0
+2	23	4	0
+2	5	0	0
+2	11	0	0
+2	12	1	0
+2	14	0	0
+2	17	0	0
+2	19	0	0
+2	20	0	0
+2	22	0	0
+34	1	0	0
+34	2	0	0
+34	3	0	0
+34	6	1	0
+34	10	0	0
+34	11	2	0
+34	15	0	0
+34	17	3	0
+34	22	0	0
+34	7	2	0
+34	8	0	0
+34	9	0	0
+34	12	2	0
+34	13	0	0
+34	14	0	0
+34	16	0	0
+34	19	0	0
+34	23	0	0
+67	2	1	0
+67	5	0	0
+67	8	0	0
+67	13	0	0
+67	16	1	0
+67	18	0	0
+67	22	0	0
+67	23	0	0
+67	3	0	0
+67	6	0	0
+67	9	0	0
+67	10	2	0
+67	12	3	0
+67	17	1	0
+67	20	0	0
+67	100	0	0
+100	1	0	0
+100	2	2	0
+100	3	1	0
+100	5	1	0
+100	13	1	0
+100	14	0	0
+100	16	0	0
+100	17	0	0
+100	23	1	0
+100	7	0	0
+100	8	0	0
+100	9	0	0
+100	10	2	0
+100	11	1	0
+100	12	0	0
+100	15	0	0
+100	19	0	0
+100	133	0	0
+133	3	0	0
+133	5	0	0
+133	8	0	0
+133	9	0	0
+133	11	0	0
+133	16	5	0
+133	166	0	0
+133	1	0	0
+133	2	4	0
+133	14	2	0
+133	17	0	0
+133	20	2	0
+133	133	0	0
+133	168	1	0
+166	1	0	0
+166	10	4	0
+166	11	0	0
+166	12	1	0
+166	16	0	0
+166	19	0	0
+166	23	1	0
+166	166	0	0
+166	168	0	0
+166	2	5	0
+166	3	0	0
+166	5	0	0
+166	8	0	0
+166	9	0	0
+166	13	0	0
+166	15	4	0
+166	17	1	0
+166	22	0	0
+167	2	2	0
+167	3	1	0
+167	5	0	0
+167	7	1	0
+167	8	0	0
+167	10	1	0
+167	17	0	0
+167	20	0	0
+167	6	0	0
+167	9	0	0
+167	11	1	0
+167	12	0	0
+167	23	0	0
+167	166	0	0
+167	168	0	0
+167	201	1	0
+168	1	0	0
+168	2	1	0
+168	3	0	0
+168	5	0	0
+168	6	1	0
+168	9	0	0
+168	11	0	0
+168	15	2	0
+168	7	0	0
+168	8	0	0
+168	10	0	0
+168	13	1	0
+168	19	1	0
+168	22	0	0
+168	166	1	0
+168	207	2	0
+169	1	0	0
+169	3	1	0
+169	7	0	0
+169	8	0	0
+169	9	2	0
+169	10	2	0
+169	207	4	0
+169	2	1	0
+169	5	1	0
+169	6	0	0
+169	11	1	0
+169	13	1	0
+169	15	2	0
+169	206	1	0
+170	1	0	0
+170	2	2	0
+170	6	0	0
+170	11	3	0
+170	16	1	0
+170	19	0	0
+170	206	1	0
+170	5	0	0
+170	8	0	0
+170	10	0	0
+170	15	3	0
+170	17	0	0
+170	205	0	0
+170	207	4	0
+171	1	0	0
+171	3	1	0
+171	7	1	0
+171	10	1	0
+171	11	1	0
+171	22	0	0
+171	206	0	0
+171	2	1	0
+171	13	0	0
+171	17	1	0
+171	100	0	0
+171	166	0	0
+171	168	0	0
+171	204	0	0
+172	1	0	0
+172	8	0	0
+172	10	1	0
+172	13	0	0
+172	17	2	0
+172	166	0	0
+172	2	0	0
+172	3	2	0
+172	5	0	0
+172	6	2	0
+172	9	2	0
+172	19	1	0
+172	168	1	0
+173	1	0	0
+173	2	2	0
+173	3	1	0
+173	7	0	0
+173	8	0	0
+173	10	1	0
+173	13	0	0
+173	20	0	0
+173	5	2	0
+173	6	0	0
+173	9	1	0
+173	19	1	0
+173	100	1	0
+173	166	1	0
+173	168	0	0
+173	207	3	0
+174	1	0	0
+174	2	2	0
+174	6	0	0
+174	7	1	0
+174	9	0	0
+174	10	1	0
+174	11	1	0
+174	16	0	0
+174	3	0	0
+174	5	0	0
+174	8	0	0
+174	13	1	0
+174	19	0	0
+174	20	1	0
+174	206	1	0
+174	207	0	0
+175	1	0	0
+175	2	1	0
+175	6	1	0
+175	8	0	0
+175	10	3	0
+175	16	1	0
+175	19	0	0
+175	166	0	0
+175	3	1	0
+175	5	0	0
+175	9	2	0
+175	15	1	0
+175	17	1	0
+175	20	0	0
+175	22	0	0
+175	207	2	0
+176	1	0	0
+176	6	0	0
+176	9	2	0
+176	10	4	0
+176	13	0	0
+176	16	0	0
+176	20	2	0
+176	2	2	0
+176	3	0	0
+176	5	1	0
+176	15	1	0
+176	19	0	0
+176	22	1	0
+176	166	1	0
+199	1	0	0
+199	2	0	0
+199	3	0	0
+199	6	1	0
+199	15	1	0
+199	16	0	0
+199	20	0	0
+199	207	0	0
+199	5	0	0
+199	9	1	0
+199	10	1	0
+199	11	0	0
+199	17	0	0
+199	19	0	0
+199	100	1	0
+199	166	0	0
+200	1	0	0
+200	5	1	0
+200	8	0	0
+200	9	0	0
+200	20	0	0
+200	22	0	0
+200	166	1	0
+200	207	0	0
+200	2	1	0
+200	6	1	0
+200	7	0	0
+200	11	1	0
+200	17	0	0
+200	18	0	0
+200	19	0	0
+200	23	2	0
+201	1	0	0
+201	2	3	0
+201	5	0	0
+201	6	0	0
+201	7	0	0
+201	11	4	0
+201	17	2	0
+201	8	0	0
+201	9	2	0
+201	13	0	0
+201	19	0	0
+201	20	1	0
+201	23	2	0
+201	207	2	0
+202	2	0	0
+202	7	4	0
+202	8	0	0
+202	9	2	0
+202	13	0	0
+202	166	0	0
+202	207	2	0
+202	3	1	0
+202	5	0	0
+202	11	0	0
+202	12	2	0
+202	18	0	0
+202	20	0	0
+202	23	1	0
+203	1	0	0
+203	5	0	0
+203	12	6	0
+203	19	0	0
+203	20	1	0
+203	23	1	0
+203	202	0	0
+203	3	0	0
+203	9	1	0
+203	10	3	0
+203	11	0	0
+203	17	0	0
+203	100	0	0
+203	207	2	0
+204	1	0	0
+204	3	1	0
+204	6	3	0
+204	8	0	0
+204	10	6	0
+204	166	3	0
+204	2	0	0
+204	5	0	0
+204	9	2	0
+204	13	0	0
+204	133	2	0
+204	207	0	0
+205	1	0	0
+205	3	3	0
+205	7	0	0
+205	10	0	0
+205	12	4	0
+205	13	0	0
+205	17	0	0
+205	166	0	0
+205	5	1	0
+205	6	1	0
+205	9	1	0
+205	18	0	0
+205	19	0	0
+205	23	0	0
+205	203	0	0
+205	207	1	0
+206	1	0	0
+206	3	0	0
+206	6	1	0
+206	7	1	0
+206	12	2	0
+206	13	0	0
+206	23	2	0
+206	5	0	0
+206	9	1	0
+206	10	1	0
+206	17	1	0
+206	19	0	0
+206	20	0	0
+206	166	0	0
+206	207	0	0
+232	1	0	0
+232	2	2	0
+232	6	0	0
+232	7	4	0
+232	8	0	0
+232	10	1	0
+232	13	2	0
+232	3	1	0
+232	12	4	0
+232	19	2	0
+232	22	0	0
+232	166	0	0
+232	203	0	0
+232	207	1	0
+233	1	0	0
+233	2	2	0
+233	6	0	0
+233	7	0	0
+233	9	0	0
+233	17	0	0
+233	100	1	0
+233	168	0	0
+233	207	1	0
+233	5	0	0
+233	10	2	0
+233	12	0	0
+233	15	0	0
+233	19	0	0
+233	22	0	0
+233	133	0	0
+233	166	0	0
+233	203	0	0
+234	1	0	0
+234	2	1	0
+234	5	1	0
+234	10	3	0
+234	133	0	0
+234	166	0	0
+234	207	2	0
+234	8	1	0
+234	9	0	0
+234	12	3	0
+234	19	0	0
+234	20	1	0
+234	23	3	0
+234	168	0	0
+235	1	0	0
+235	3	0	0
+235	5	0	0
+235	6	0	0
+235	7	2	0
+235	8	1	0
+235	12	3	0
+235	2	3	0
+235	9	0	0
+235	10	6	0
+235	13	0	0
+235	17	1	0
+235	20	0	0
+235	207	0	0
+236	1	0	0
+236	2	1	0
+236	5	1	0
+236	6	1	0
+236	7	0	0
+236	8	0	0
+236	9	0	0
+236	12	1	0
+236	3	2	0
+236	10	1	0
+236	13	1	0
+236	19	0	0
+236	20	0	0
+236	23	1	0
+236	168	0	0
+236	207	1	0
+237	1	0	0
+237	7	0	0
+237	10	1	0
+237	16	2	0
+237	20	0	0
+237	203	0	0
+237	207	0	0
+237	2	0	0
+237	3	1	0
+237	6	1	0
+237	12	3	0
+237	13	1	0
+237	17	0	0
+237	133	1	0
+238	1	0	0
+238	3	0	0
+238	8	1	0
+238	22	1	0
+238	23	0	0
+238	166	0	0
+238	168	0	0
+238	2	0	0
+238	4	0	0
+238	9	0	0
+238	12	2	0
+238	17	0	0
+238	20	0	0
+238	232	1	0
+239	1	0	0
+239	8	1	0
+239	10	4	0
+239	19	0	0
+239	23	3	0
+239	166	1	0
+239	3	0	0
+239	12	2	0
+239	22	0	0
+239	100	1	0
+239	168	0	0
+239	207	0	0
+240	1	0	0
+240	6	0	0
+240	8	0	0
+240	12	2	0
+240	19	0	0
+240	166	0	0
+240	7	1	0
+240	10	3	0
+240	17	0	0
+240	23	2	0
+240	100	0	0
+240	207	0	0
+241	1	0	0
+241	2	1	0
+241	5	1	0
+241	6	2	0
+241	9	0	0
+241	17	0	0
+241	168	0	0
+241	3	2	0
+241	10	2	0
+241	20	1	0
+241	22	0	0
+241	207	1	0
+241	233	0	0
+241	234	0	0
+242	1	0	0
+242	6	0	0
+242	7	0	0
+242	10	3	0
+242	13	0	0
+242	19	0	0
+242	22	0	0
+242	206	0	0
+242	2	0	0
+242	3	0	0
+242	4	0	0
+242	9	0	0
+242	20	0	0
+242	166	1	0
+242	168	0	0
+242	207	0	0
+243	1	0	0
+243	8	0	0
+243	10	3	0
+243	13	1	0
+243	166	1	0
+243	168	0	0
+243	207	2	0
+243	2	1	0
+243	3	1	0
+243	5	2	0
+243	7	2	0
+243	9	0	0
+243	206	1	0
+243	232	0	0
+265	1	0	0
+265	7	1	0
+265	12	2	0
+265	19	0	0
+265	166	1	0
+265	265	4	0
+265	266	0	0
+265	2	0	0
+265	3	1	0
+265	8	0	0
+265	9	0	0
+265	13	1	0
+265	168	0	0
+265	207	0	0
+\.
+
+
+--
+-- Data for Name: players; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.players (player_id, player_name, preferred_position) FROM stdin;
+1	Stu	GK
+2	Skelton	FW
+3	Ste A	DF
+4	Luke	MF
+5	Andy G	MF
+6	Gotham	MF
+7	DJ	DF
+8	Aidan	DF
+9	Buzz	MF
+10	Lee	FW
+11	Simon	FW
+12	Sam S	FW
+13	Matteo	DF
+14	Dan O	FW
+15	Will C	FW
+16	Josh	MF
+17	George	MF
+18	Connor	GK
+19	louis	MF
+20	Mo	DF
+21	Joe Nick	FW
+22	Berry	MF
+23	Simmo	FW
+232	Adam	FW
+233	Subby	MF
+201	Matthew	MF
+100	Ste C	FW
+133	Dom	DF
+166	Ratty	MF
+202	Amran	DF
+168	Harry	FW
+203	Ray	DF
+204	Wayne	MF
+205	Vince	FW
+206	Dave W	MF
+207	Rob H	FW
+234	Aaron	MF
+265	Ben	FW
+266	Connor McNeil	DF
+\.
+
+
+--
+-- Data for Name: team_members; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.team_members (team_id, player_id) FROM stdin;
+1	1
+1	8
+1	9
+1	12
+1	13
+1	14
+1	15
+1	23
+2	2
+2	3
+2	5
+2	7
+2	10
+2	11
+2	17
+2	22
+3	1
+3	2
+3	6
+3	8
+3	9
+3	13
+3	15
+3	23
+4	5
+4	11
+4	12
+4	14
+4	17
+4	19
+4	20
+4	22
+34	1
+34	2
+34	3
+34	6
+34	10
+34	11
+34	15
+34	17
+34	22
+35	7
+35	8
+35	9
+35	12
+35	13
+35	14
+35	16
+35	19
+35	23
+67	2
+67	5
+67	8
+67	13
+67	16
+67	18
+67	22
+67	23
+68	3
+68	6
+68	9
+68	10
+68	12
+68	17
+68	20
+68	100
+100	1
+100	2
+100	3
+100	5
+100	13
+100	14
+100	16
+100	17
+100	23
+101	7
+101	8
+101	9
+101	10
+101	11
+101	12
+101	15
+101	19
+101	133
+133	3
+133	5
+133	8
+133	9
+133	11
+133	16
+133	166
+134	1
+134	2
+134	14
+134	17
+134	20
+134	133
+134	168
+166	1
+166	10
+166	11
+166	12
+166	16
+166	19
+166	23
+166	166
+166	168
+167	2
+167	3
+167	5
+167	8
+167	9
+167	13
+167	15
+167	17
+167	22
+168	2
+168	3
+168	5
+168	7
+168	8
+168	10
+168	17
+168	20
+169	6
+169	9
+169	11
+169	12
+169	23
+169	166
+169	168
+169	201
+170	1
+170	2
+170	3
+170	5
+170	6
+170	9
+170	11
+170	15
+171	7
+171	8
+171	10
+171	13
+171	19
+171	22
+171	166
+171	207
+172	1
+172	3
+172	7
+172	8
+172	9
+172	10
+172	207
+173	2
+173	5
+173	6
+173	11
+173	13
+173	15
+173	206
+174	1
+174	2
+174	6
+174	11
+174	16
+174	19
+174	206
+175	5
+175	8
+175	10
+175	15
+175	17
+175	205
+175	207
+176	1
+176	3
+176	7
+176	10
+176	11
+176	22
+176	206
+177	2
+177	13
+177	17
+177	100
+177	166
+177	168
+177	204
+178	1
+178	8
+178	10
+178	13
+178	17
+178	166
+179	2
+179	3
+179	5
+179	6
+179	9
+179	19
+179	168
+180	1
+180	2
+180	3
+180	7
+180	8
+180	10
+180	13
+180	20
+181	5
+181	6
+181	9
+181	19
+181	100
+181	166
+181	168
+181	207
+182	1
+182	2
+182	6
+182	7
+182	9
+182	10
+182	11
+182	16
+183	3
+183	5
+183	8
+183	13
+183	19
+183	20
+183	206
+183	207
+184	1
+184	2
+184	6
+184	8
+184	10
+184	16
+184	19
+184	166
+185	3
+185	5
+185	9
+185	15
+185	17
+185	20
+185	22
+185	207
+186	1
+186	6
+186	9
+186	10
+186	13
+186	16
+186	20
+187	2
+187	3
+187	5
+187	15
+187	19
+187	22
+187	166
+199	1
+199	2
+199	3
+199	6
+199	15
+199	16
+199	20
+199	207
+200	5
+200	9
+200	10
+200	11
+200	17
+200	19
+200	100
+200	166
+201	1
+201	5
+201	8
+201	9
+201	20
+201	22
+201	166
+201	207
+202	2
+202	6
+202	7
+202	11
+202	17
+202	18
+202	19
+202	23
+203	1
+203	2
+203	5
+203	6
+203	7
+203	11
+203	17
+204	8
+204	9
+204	13
+204	19
+204	20
+204	23
+204	207
+205	2
+205	7
+205	8
+205	9
+205	13
+205	166
+205	207
+206	3
+206	5
+206	11
+206	12
+206	18
+206	20
+206	23
+207	1
+207	5
+207	12
+207	19
+207	20
+207	23
+207	202
+208	3
+208	9
+208	10
+208	11
+208	17
+208	100
+208	207
+209	1
+209	3
+209	6
+209	8
+209	10
+209	166
+210	2
+210	5
+210	9
+210	13
+210	133
+210	207
+211	1
+211	3
+211	7
+211	10
+211	12
+211	13
+211	17
+211	166
+212	5
+212	6
+212	9
+212	18
+212	19
+212	23
+212	203
+212	207
+213	1
+213	3
+213	6
+213	7
+213	12
+213	13
+213	23
+214	5
+214	9
+214	10
+214	17
+214	19
+214	20
+214	166
+214	207
+232	1
+232	2
+232	6
+232	7
+232	8
+232	10
+232	13
+233	3
+233	12
+233	19
+233	22
+233	166
+233	203
+233	207
+234	1
+234	2
+234	6
+234	7
+234	9
+234	17
+234	100
+234	168
+234	207
+235	5
+235	10
+235	12
+235	15
+235	19
+235	22
+235	133
+235	166
+235	203
+236	1
+236	2
+236	5
+236	10
+236	133
+236	166
+236	207
+237	8
+237	9
+237	12
+237	19
+237	20
+237	23
+237	168
+238	1
+238	3
+238	5
+238	6
+238	7
+238	8
+238	12
+239	2
+239	9
+239	10
+239	13
+239	17
+239	20
+239	207
+240	1
+240	2
+240	5
+240	6
+240	7
+240	8
+240	9
+240	12
+241	3
+241	10
+241	13
+241	19
+241	20
+241	23
+241	168
+241	207
+242	1
+242	7
+242	10
+242	16
+242	20
+242	203
+242	207
+243	2
+243	3
+243	6
+243	12
+243	13
+243	17
+243	133
+244	1
+244	3
+244	8
+244	22
+244	23
+244	166
+244	168
+245	2
+245	4
+245	9
+245	12
+245	17
+245	20
+245	232
+246	1
+246	8
+246	10
+246	19
+246	23
+246	166
+247	3
+247	12
+247	22
+247	100
+247	168
+247	207
+248	1
+248	6
+248	8
+248	12
+248	19
+248	166
+249	7
+249	10
+249	17
+249	23
+249	100
+249	207
+250	1
+250	2
+250	5
+250	6
+250	9
+250	17
+250	168
+251	3
+251	10
+251	20
+251	22
+251	207
+251	233
+251	234
+252	1
+252	6
+252	7
+252	10
+252	13
+252	19
+252	22
+252	206
+253	2
+253	3
+253	4
+253	9
+253	20
+253	166
+253	168
+253	207
+254	1
+254	8
+254	10
+254	13
+254	166
+254	168
+254	207
+255	2
+255	3
+255	5
+255	7
+255	9
+255	206
+255	232
+265	1
+265	7
+265	12
+265	19
+265	166
+265	265
+265	266
+266	2
+266	3
+266	8
+266	9
+266	13
+266	168
+266	207
+\.
+
+
+--
+-- Data for Name: teams; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.teams (team_id, game_id) FROM stdin;
+1	1
+2	1
+3	2
+4	2
+34	34
+35	34
+67	67
+68	67
+100	100
+101	100
+133	133
+134	133
+166	166
+167	166
+168	167
+169	167
+170	168
+171	168
+172	169
+173	169
+174	170
+175	170
+176	171
+177	171
+178	172
+179	172
+180	173
+181	173
+182	174
+183	174
+184	175
+185	175
+186	176
+187	176
+199	199
+200	199
+201	200
+202	200
+203	201
+204	201
+205	202
+206	202
+207	203
+208	203
+209	204
+210	204
+211	205
+212	205
+213	206
+214	206
+232	232
+233	232
+234	233
+235	233
+236	234
+237	234
+238	235
+239	235
+240	236
+241	236
+242	237
+243	237
+244	238
+245	238
+246	239
+247	239
+248	240
+249	240
+250	241
+251	241
+252	242
+253	242
+254	243
+255	243
+265	265
+266	265
+\.
+
+
+--
+-- Name: games_game_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.games_game_id_seq', 265, true);
+
+
+--
+-- Name: players_player_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.players_player_id_seq', 266, true);
+
+
+--
+-- Name: teams_team_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.teams_team_id_seq', 266, true);
+
+
+--
+-- Name: games games_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.games
+    ADD CONSTRAINT games_pkey PRIMARY KEY (game_id);
+
+
+--
+-- Name: player_game_stats player_game_stats_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_game_stats
+    ADD CONSTRAINT player_game_stats_pkey PRIMARY KEY (game_id, player_id);
+
+
+--
+-- Name: players players_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.players
+    ADD CONSTRAINT players_pkey PRIMARY KEY (player_id);
+
+
+--
+-- Name: players players_player_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.players
+    ADD CONSTRAINT players_player_name_key UNIQUE (player_name);
+
+
+--
+-- Name: team_members team_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.team_members
+    ADD CONSTRAINT team_members_pkey PRIMARY KEY (team_id, player_id);
+
+
+--
+-- Name: teams teams_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.teams
+    ADD CONSTRAINT teams_pkey PRIMARY KEY (team_id);
+
+
+--
+-- Name: teams fk_game_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.teams
+    ADD CONSTRAINT fk_game_id FOREIGN KEY (game_id) REFERENCES public.games(game_id);
+
+
+--
+-- Name: player_game_stats fk_game_id_stats; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_game_stats
+    ADD CONSTRAINT fk_game_id_stats FOREIGN KEY (game_id) REFERENCES public.games(game_id);
+
+
+--
+-- Name: team_members fk_player_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.team_members
+    ADD CONSTRAINT fk_player_id FOREIGN KEY (player_id) REFERENCES public.players(player_id);
+
+
+--
+-- Name: player_game_stats fk_player_id_stats; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_game_stats
+    ADD CONSTRAINT fk_player_id_stats FOREIGN KEY (player_id) REFERENCES public.players(player_id);
+
+
+--
+-- Name: team_members fk_team_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.team_members
+    ADD CONSTRAINT fk_team_id FOREIGN KEY (team_id) REFERENCES public.teams(team_id);
+
+
+--
+-- Name: extension_before_drop; Type: EVENT TRIGGER; Schema: -; Owner: -
+--
+
+CREATE EVENT TRIGGER extension_before_drop ON ddl_command_start
+   EXECUTE FUNCTION _heroku.extension_before_drop();
+
+
+--
+-- Name: log_create_ext; Type: EVENT TRIGGER; Schema: -; Owner: -
+--
+
+CREATE EVENT TRIGGER log_create_ext ON ddl_command_end
+   EXECUTE FUNCTION _heroku.create_ext();
+
+
+--
+-- Name: log_drop_ext; Type: EVENT TRIGGER; Schema: -; Owner: -
+--
+
+CREATE EVENT TRIGGER log_drop_ext ON sql_drop
+   EXECUTE FUNCTION _heroku.drop_ext();
+
+
+--
+-- Name: validate_extension; Type: EVENT TRIGGER; Schema: -; Owner: -
+--
+
+CREATE EVENT TRIGGER validate_extension ON ddl_command_end
+   EXECUTE FUNCTION _heroku.validate_extension();
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+\unrestrict 4pKi1L5KMqIFqfbku3kcCPtDs2tTNyo7VqFkY3dvPdXfKaWJm8aKezwWZkwvHci
+
