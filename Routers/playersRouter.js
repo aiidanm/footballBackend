@@ -224,18 +224,28 @@ WHERE
 
   // Add a new player
   router.post("/", async (req, res) => {
-    const { name, preferred_position } = req.body;
+    const players = req.body
+    if(!Array.isArray(players)){
+      return res.status(500).json({error: "array not provided"})
+    }
+
     try {
-      const result = await client.query(
-        "INSERT INTO players (player_name, preferred_position) VALUES ($1, $2) RETURNING *",
-        [name, preferred_position]
-      );
+      const placeholders = players.map((player, index) => `($${index * 2 + 1}, $${index * 2 + 2})`).join(', ')
+      const values = players.flatMap(p => [p.name, p.preferred_position])
+      const query = `
+      INSERT INTO players (player_name, preferred_position) 
+      VALUES ${placeholders} 
+      RETURNING *
+    `;
+      const result = await client.query(query, values)
       res.json(result.rows[0]);
     } catch (err) {
       console.error("Error adding player", err.stack);
       res.status(500).json({ error: "Internal server error" });
     }
   });
+
+  
 
   // Update a player by ID
   router.put("/:id", async (req, res) => {
