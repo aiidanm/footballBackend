@@ -1,6 +1,6 @@
 import admin from "../firebaseAdmin.js";
 
-async function verifyToken(req, res, next) {
+const createVerifyToken = (client) => async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -12,11 +12,19 @@ async function verifyToken(req, res, next) {
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     req.user = decodedToken;
+
+    const uid = decodedToken.uid;
+    const result = await client.query('SELECT league_id FROM league_ids WHERE uid = $1', [uid]);
+    if (result.rows.length === 0) {
+      return res.status(403).send("User not found in database");
+    }
+    req.league_id = result.rows[0].league_id;
+
     next();
   } catch (error) {
-    console.error("Error while verifying Firebase ID token:", error);
+    console.error("Error while verifying Firebase ID token or querying database:", error);
     res.status(403).send("Unauthorized");
   }
-}
+};
 
-export default verifyToken;
+export default createVerifyToken;

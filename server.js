@@ -4,6 +4,7 @@ const { Client } = pkg;
 import cors from "cors";
 import bodyParser from "body-parser";
 import "dotenv/config";
+import createVerifyToken from "./Routers/authMiddleware.js";
 import PlayerRoutes from "./Routers/playersRouter.js";
 import GameRoutes from "./Routers/gamesRouter.js";
 import AiRoutes from "./Routers/AiRouter.js";
@@ -33,6 +34,9 @@ client
       console.error("Database host not found. Please verify the host address.");
     }
   });
+
+const verifyToken = createVerifyToken(client);
+app.use(verifyToken);
 
 app.use("/players", PlayerRoutes(client));
 app.use("/games", GameRoutes(client));
