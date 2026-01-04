@@ -3,7 +3,6 @@ import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
 import { Console } from "console";
 import { initializeApp } from "firebase-admin/app";
-import verifyToken from "./authMiddleware.js";
 
 const router = express.Router();
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -11,7 +10,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const prePrompt = fs.readFileSync("./prePrompt.txt", "utf-8");
 
 const AiRoutes = (client) => {
-  router.post("/", verifyToken, async (req, res) => {
+  router.post("/", async (req, res) => {
     // const { prompt } = req.body;
 
     // if (!prompt) {

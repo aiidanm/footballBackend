@@ -5,6 +5,7 @@ const router = express.Router();
 const GamesRouter = (client) => {
   router.get("/:id", async (req, res) => {
     const { id } = req.params;
+    const league_id = req.league_id
     const gameId = parseInt(id, 10);
 
     if (isNaN(gameId)) {
@@ -16,9 +17,9 @@ const GamesRouter = (client) => {
         `
         SELECT game_id, game_date, team1_score, team2_score
         FROM games
-        WHERE game_id = $1
+        WHERE game_id = $1 AND league_id = $2
       `,
-        [gameId]
+        [gameId, league_id]
       );
 
       if (gameResult.rows.length === 0) {
@@ -38,10 +39,10 @@ const GamesRouter = (client) => {
         JOIN players ON team_members.player_id = players.player_id
         LEFT JOIN player_game_stats ON player_game_stats.game_id = teams.game_id
                                     AND player_game_stats.player_id = players.player_id
-        WHERE teams.game_id = $1
+        WHERE teams.game_id = $1 AND league_id = $2
         ORDER BY teams.team_id, players.player_name;
       `,
-        [gameId]
+        [gameId, league_id]
       );
 
       const teamsMap = {};
@@ -88,29 +89,31 @@ const GamesRouter = (client) => {
 
   router.post("/", async (req, res) => {
     const { date, team1Score, team2Score, teams } = req.body;
+    const league_id = req.league_id
+
 
     try {
       const gameResult = await client.query(
-        `INSERT INTO games (game_date, team1_score, team2_score)
-         VALUES ($1, $2, $3) 
+        `INSERT INTO games (game_date, team1_score, team2_score, league_id)
+         VALUES ($1, $2, $3, $4) 
          RETURNING game_id;`,
-        [date, team1Score, team2Score]
+        [date, team1Score, team2Score, league_id]
       );
       const gameId = gameResult.rows[0].game_id;
 
       const team1Result = await client.query(
-        `INSERT INTO teams (game_id)
-         VALUES ($1)
+        `INSERT INTO teams (game_id, league_id)
+         VALUES ($1, $2)
          RETURNING team_id;`,
-        [gameId]
+        [gameId, league_id]
       );
       const team1Id = team1Result.rows[0].team_id;
 
       const team2Result = await client.query(
-        `INSERT INTO teams (game_id)
+        `INSERT INTO teams (game_id, league_id)
          VALUES ($1)
          RETURNING team_id;`,
-        [gameId]
+        [gameId, league_id]
       );
       const team2Id = team2Result.rows[0].team_id;
 
@@ -118,15 +121,15 @@ const GamesRouter = (client) => {
         const { player_id, goals_scored, kicked_over_fence } = player;
 
         await client.query(
-          `INSERT INTO team_members (team_id, player_id)
-           VALUES ($1, $2);`,
-          [team1Id, player_id]
+          `INSERT INTO team_members (team_id, player_id, league_id)
+           VALUES ($1, $2, $3);`,
+          [team1Id, player_id, league_id]
         );
 
         await client.query(
-          `INSERT INTO player_game_stats (game_id, player_id, goals_scored, kicked_over_fence)
-           VALUES ($1, $2, $3, $4);`,
-          [gameId, player_id, goals_scored || 0, kicked_over_fence || 0]
+          `INSERT INTO player_game_stats (game_id, player_id, goals_scored, kicked_over_fence, league_id)
+           VALUES ($1, $2, $3, $4, $5);`,
+          [gameId, player_id, goals_scored || 0, kicked_over_fence || 0, league_id]
         );
       }
 
@@ -134,15 +137,15 @@ const GamesRouter = (client) => {
         const { player_id, goals_scored, kicked_over_fence } = player;
 
         await client.query(
-          `INSERT INTO team_members (team_id, player_id)
-           VALUES ($1, $2);`,
-          [team2Id, player_id]
+          `INSERT INTO team_members (team_id, player_id, league_id)
+           VALUES ($1, $2, $3);`,
+          [team2Id, player_id, league_id]
         );
 
         await client.query(
-          `INSERT INTO player_game_stats (game_id, player_id, goals_scored, kicked_over_fence)
-           VALUES ($1, $2, $3, $4);`,
-          [gameId, player_id, goals_scored || 0, kicked_over_fence || 0]
+          `INSERT INTO player_game_stats (game_id, player_id, goals_scored, kicked_over_fence, league_id)
+           VALUES ($1, $2, $3, $4, $5);`,
+          [gameId, player_id, goals_scored || 0, kicked_over_fence || 0, league_id]
         );
       }
 
@@ -169,17 +172,19 @@ const GamesRouter = (client) => {
           COALESCE(pgs.kicked_over_fence, 0) AS kicked_over_fence
         FROM games AS g
         JOIN teams AS t
-          ON g.game_id = t.game_id
+          ON g.game_id = t.game_id AND t.league_id = $1
         JOIN team_members AS tm
-          ON t.team_id = tm.team_id
+          ON t.team_id = tm.team_id AND t.league_id = $1
         JOIN players AS p
           ON tm.player_id = p.player_id
         LEFT JOIN player_game_stats AS pgs
           ON pgs.game_id = g.game_id AND pgs.player_id = p.player_id
+        WHERE g.league_id = $1
         ORDER BY
           g.game_id,
           t.team_id,
-          p.player_name`
+          p.player_name`,
+          [league_id]
       );
 
       const games = {};
