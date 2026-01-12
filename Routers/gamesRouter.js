@@ -150,42 +150,38 @@ const GamesRouter = (client) => {
   });
 
   router.post("/", async (req, res) => {
-    const { date, team1Score, team2Score, teams } = req.body;
-    const league_id = req.league_id
+  const { date, team1Score, team2Score, teams } = req.body;
+  const league_id = req.league_id;
 
+  try {
+    await client.query('BEGIN');
 
-    try {
-      const gameResult = await client.query(
-        `INSERT INTO games (game_date, team1_score, team2_score, league_id)
-         VALUES ($1, $2, $3, $4) 
-         RETURNING game_id;`,
-        [date, team1Score, team2Score, league_id]
-      );
-      const gameId = gameResult.rows[0].game_id;
+    const gameResult = await client.query(
+      `INSERT INTO games (game_date, team1_score, team2_score, league_id)
+       VALUES ($1, $2, $3, $4) RETURNING game_id;`,
+      [date, team1Score, team2Score, league_id]
+    );
+    const gameId = gameResult.rows[0].game_id;
 
-      const team1Result = await client.query(
-        `INSERT INTO teams (game_id, league_id)
-         VALUES ($1, $2)
-         RETURNING team_id;`,
-        [gameId, league_id]
-      );
-      const team1Id = team1Result.rows[0].team_id;
+    const team1Result = await client.query(
+      `INSERT INTO teams (game_id, league_id) VALUES ($1, $2) RETURNING team_id;`,
+      [gameId, league_id]
+    );
+    const team1Id = team1Result.rows[0].team_id;
 
-      const team2Result = await client.query(
-        `INSERT INTO teams (game_id, league_id)
-         VALUES ($1)
-         RETURNING team_id;`,
-        [gameId, league_id]
-      );
-      const team2Id = team2Result.rows[0].team_id;
+    const team2Result = await client.query(
+      `INSERT INTO teams (game_id, league_id) VALUES ($1, $2) RETURNING team_id;`, // Fixed $2
+      [gameId, league_id]
+    );
+    const team2Id = team2Result.rows[0].team_id;
 
-      for (const player of teams.team1) {
+    const insertPlayers = async (playerList, teamId) => {
+      for (const player of playerList) {
         const { player_id, goals_scored, kicked_over_fence } = player;
-
+        
         await client.query(
-          `INSERT INTO team_members (team_id, player_id, league_id)
-           VALUES ($1, $2, $3);`,
-          [team1Id, player_id, league_id]
+          `INSERT INTO team_members (team_id, player_id, league_id) VALUES ($1, $2, $3);`,
+          [teamId, player_id, league_id]
         );
 
         await client.query(
@@ -194,29 +190,20 @@ const GamesRouter = (client) => {
           [gameId, player_id, goals_scored || 0, kicked_over_fence || 0, league_id]
         );
       }
+    };
 
-      for (const player of teams.team2) {
-        const { player_id, goals_scored, kicked_over_fence } = player;
+    await insertPlayers(teams.team1, team1Id);
+    await insertPlayers(teams.team2, team2Id);
 
-        await client.query(
-          `INSERT INTO team_members (team_id, player_id, league_id)
-           VALUES ($1, $2, $3);`,
-          [team2Id, player_id, league_id]
-        );
+    await client.query('COMMIT');
+    res.json({ message: "Game recorded successfully", gameId });
 
-        await client.query(
-          `INSERT INTO player_game_stats (game_id, player_id, goals_scored, kicked_over_fence, league_id)
-           VALUES ($1, $2, $3, $4, $5);`,
-          [gameId, player_id, goals_scored || 0, kicked_over_fence || 0, league_id]
-        );
-      }
-
-      res.json({ message: "Game recorded successfully", gameId });
-    } catch (err) {
-      console.error("Error recording game:", err);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error("Error recording game:", err);
+    res.status(500).json({ error: "Failed to record game. Transaction rolled back." });
+  }
+});
   return router;
 };
 
