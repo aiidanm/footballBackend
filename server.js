@@ -8,6 +8,7 @@ import createVerifyToken from "./Routers/authMiddleware.js";
 import PlayerRoutes from "./Routers/playersRouter.js";
 import GameRoutes from "./Routers/gamesRouter.js";
 import AiRoutes from "./Routers/AiRouter.js";
+import LeaguesRouter from "./Routers/leaguesRouter.js";
 
 const app = express();
 app.use(cors({ origin: `*` }));
@@ -38,6 +39,7 @@ client
 const verifyToken = createVerifyToken(client);
 app.use(verifyToken);
 
+app.use('/leagues', LeaguesRouter(client))
 app.use("/players", PlayerRoutes(client));
 app.use("/games", GameRoutes(client));
 app.use("/ai", AiRoutes(client));
