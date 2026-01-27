@@ -177,7 +177,7 @@ const GamesRouter = (client) => {
 
     const insertPlayers = async (playerList, teamId) => {
       for (const player of playerList) {
-        const { player_id, goals_scored, kicked_over_fence } = player;
+        const { player_id, goals_scored, kicked_over_fence, own_goals } = player;
         
         await client.query(
           `INSERT INTO team_members (team_id, player_id, league_id) VALUES ($1, $2, $3);`,
@@ -185,9 +185,9 @@ const GamesRouter = (client) => {
         );
 
         await client.query(
-          `INSERT INTO player_game_stats (game_id, player_id, goals_scored, kicked_over_fence, league_id)
-           VALUES ($1, $2, $3, $4, $5);`,
-          [gameId, player_id, goals_scored || 0, kicked_over_fence || 0, league_id]
+          `INSERT INTO player_game_stats (game_id, player_id, goals_scored, kicked_over_fence, league_id, own_goals)
+           VALUES ($1, $2, $3, $4, $5, $6);`,
+          [gameId, player_id, goals_scored || 0, kicked_over_fence || 0, league_id, own_goals || 0]
         );
       }
     };
