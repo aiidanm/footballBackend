@@ -125,7 +125,7 @@ const PlayerRoutes = (client) => {
         SELECT 
             p.player_id, p.player_name,
             pgd.game_id, pgd.game_date,
-            pgd.goals_scored, pgd.kicked_over_fence,
+            pgd.goals_scored, pgd.kicked_over_fence, pgd.own_goals,
             pgd.is_winning_team
         FROM players p
         LEFT JOIN (
@@ -133,6 +133,7 @@ const PlayerRoutes = (client) => {
                 tm.player_id, g.game_id, g.game_date,
                 COALESCE(pgs.goals_scored, 0) AS goals_scored,
                 COALESCE(pgs.kicked_over_fence, 0) AS kicked_over_fence,
+                COALESCE(pgs.own_goals, 0) AS own_goals,
                 CASE
                     WHEN (g.team1_score > g.team2_score AND tm.team_id = gt.team1_id) OR
                          (g.team2_score > g.team1_score AND tm.team_id = gt.team2_id) THEN 1

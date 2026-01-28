@@ -41,7 +41,8 @@ const GamesRouter = (client) => {
         SELECT t.team_id,
                p.player_id, p.player_name,
                COALESCE(pgs.goals_scored, 0) AS goals_scored,
-               COALESCE(pgs.kicked_over_fence, 0) AS kicked_over_fence
+               COALESCE(pgs.kicked_over_fence, 0) AS kicked_over_fence,
+               COALESCE(pgs.own_goals, 0) AS own_goals
         FROM teams t
         JOIN team_members tm ON t.team_id = tm.team_id
         JOIN players p ON tm.player_id = p.player_id
@@ -55,7 +56,7 @@ const GamesRouter = (client) => {
 
       const teamsMap = {};
       for (const row of teamPlayersResult.rows) {
-        const { team_id, player_id, player_name, goals_scored, kicked_over_fence } = row;
+        const { team_id, player_id, player_name, goals_scored, kicked_over_fence, own_goals} = row;
 
         if (!teamsMap[team_id]) {
           teamsMap[team_id] = { team_id, players: [] };
@@ -66,6 +67,7 @@ const GamesRouter = (client) => {
           player_name,
           goals_scored,
           kicked_over_fence,
+          own_goals
         });
       }
 
@@ -91,6 +93,7 @@ const GamesRouter = (client) => {
           t.team_id, p.player_id, p.player_name,
           COALESCE(pgs.goals_scored, 0) AS goals_scored,
           COALESCE(pgs.kicked_over_fence, 0) AS kicked_over_fence
+          COALESCE(pgs.own_goals, 0) AS own_goals
         FROM games AS g
         JOIN teams AS t ON g.game_id = t.game_id AND t.league_id = $1
         JOIN team_members AS tm ON t.team_id = tm.team_id AND tm.league_id = $1
@@ -112,7 +115,7 @@ const GamesRouter = (client) => {
 
       const games = {};
       result.rows.forEach((row) => {
-        const { game_id, game_date, team1_score, team2_score, team_id, player_id, player_name, goals_scored, kicked_over_fence } = row;
+        const { game_id, game_date, team1_score, team2_score, team_id, player_id, player_name, goals_scored, kicked_over_fence, own_goals} = row;
 
         if (!games[game_id]) {
           games[game_id] = {
@@ -133,6 +136,7 @@ const GamesRouter = (client) => {
           player_name,
           goals_scored,
           kicked_over_fence,
+          own_goals
         });
       });
 
