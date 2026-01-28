@@ -55,6 +55,8 @@ const PlayerRoutes = (client) => {
         
         COALESCE(SUM(pgs.goals_scored), 0) AS total_goals_scored,
         COALESCE(SUM(pgs.kicked_over_fence), 0) AS total_kicked_over_fence,
+        COALESCE(SUM(pgs.own_goals), 0) AS own_goals,
+
         COUNT(DISTINCT g.game_id) AS games_played,
         
         COALESCE(SUM(CASE
