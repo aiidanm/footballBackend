@@ -92,7 +92,7 @@ const GamesRouter = (client) => {
           g.game_id, g.game_date, g.team1_score, g.team2_score,
           t.team_id, p.player_id, p.player_name,
           COALESCE(pgs.goals_scored, 0) AS goals_scored,
-          COALESCE(pgs.kicked_over_fence, 0) AS kicked_over_fence
+          COALESCE(pgs.kicked_over_fence, 0) AS kicked_over_fence,
           COALESCE(pgs.own_goals, 0) AS own_goals
         FROM games AS g
         JOIN teams AS t ON g.game_id = t.game_id AND t.league_id = $1
