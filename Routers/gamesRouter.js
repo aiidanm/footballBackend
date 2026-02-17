@@ -30,7 +30,9 @@ const GamesRouter = (client) => {
       const gameResult = await client.query(gameQuery, queryParams);
 
       if (gameResult.rows.length === 0) {
-        return res.status(404).json({ error: "Game not found within the specified criteria" });
+        return res
+          .status(404)
+          .json({ error: "Game not found within the specified criteria" });
       }
 
       const gameInfo = gameResult.rows[0];
@@ -51,12 +53,19 @@ const GamesRouter = (client) => {
         WHERE t.game_id = $1 AND t.league_id = $2
         ORDER BY t.team_id, p.player_name;
       `,
-        [gameId, league_id]
+        [gameId, league_id],
       );
 
       const teamsMap = {};
       for (const row of teamPlayersResult.rows) {
-        const { team_id, player_id, player_name, goals_scored, kicked_over_fence, own_goals} = row;
+        const {
+          team_id,
+          player_id,
+          player_name,
+          goals_scored,
+          kicked_over_fence,
+          own_goals,
+        } = row;
 
         if (!teamsMap[team_id]) {
           teamsMap[team_id] = { team_id, players: [] };
@@ -67,7 +76,7 @@ const GamesRouter = (client) => {
           player_name,
           goals_scored,
           kicked_over_fence,
-          own_goals
+          own_goals,
         });
       }
 
@@ -85,7 +94,7 @@ const GamesRouter = (client) => {
   router.get("/", async (req, res) => {
     const league_id = req.league_id;
     const year = req.query.year ? parseInt(req.query.year, 10) : null;
-    
+
     try {
       let queryText = `
         SELECT
@@ -115,7 +124,18 @@ const GamesRouter = (client) => {
 
       const games = {};
       result.rows.forEach((row) => {
-        const { game_id, game_date, team1_score, team2_score, team_id, player_id, player_name, goals_scored, kicked_over_fence, own_goals} = row;
+        const {
+          game_id,
+          game_date,
+          team1_score,
+          team2_score,
+          team_id,
+          player_id,
+          player_name,
+          goals_scored,
+          kicked_over_fence,
+          own_goals,
+        } = row;
 
         if (!games[game_id]) {
           games[game_id] = {
@@ -136,14 +156,14 @@ const GamesRouter = (client) => {
           player_name,
           goals_scored,
           kicked_over_fence,
-          own_goals
+          own_goals,
         });
       });
 
       // Flatten the internal teams object into an array for the final response
-      const formattedResponse = Object.values(games).map(game => ({
+      const formattedResponse = Object.values(games).map((game) => ({
         ...game,
-        teams: Object.values(game.teams) 
+        teams: Object.values(game.teams),
       }));
 
       res.json(formattedResponse);
@@ -154,60 +174,132 @@ const GamesRouter = (client) => {
   });
 
   router.post("/", async (req, res) => {
-  const { date, team1Score, team2Score, teams } = req.body;
-  const league_id = req.league_id;
+    const { date, team1Score, team2Score, teams } = req.body;
+    const league_id = req.league_id;
 
-  try {
-    await client.query('BEGIN');
+    try {
+      await client.query("BEGIN");
 
-    const gameResult = await client.query(
-      `INSERT INTO games (game_date, team1_score, team2_score, league_id)
+      const gameResult = await client.query(
+        `INSERT INTO games (game_date, team1_score, team2_score, league_id)
        VALUES ($1, $2, $3, $4) RETURNING game_id;`,
-      [date, team1Score, team2Score, league_id]
-    );
-    const gameId = gameResult.rows[0].game_id;
+        [date, team1Score, team2Score, league_id],
+      );
+      const gameId = gameResult.rows[0].game_id;
 
-    const team1Result = await client.query(
-      `INSERT INTO teams (game_id, league_id) VALUES ($1, $2) RETURNING team_id;`,
-      [gameId, league_id]
-    );
-    const team1Id = team1Result.rows[0].team_id;
+      const team1Result = await client.query(
+        `INSERT INTO teams (game_id, league_id) VALUES ($1, $2) RETURNING team_id;`,
+        [gameId, league_id],
+      );
+      const team1Id = team1Result.rows[0].team_id;
 
-    const team2Result = await client.query(
-      `INSERT INTO teams (game_id, league_id) VALUES ($1, $2) RETURNING team_id;`, // Fixed $2
-      [gameId, league_id]
-    );
-    const team2Id = team2Result.rows[0].team_id;
+      const team2Result = await client.query(
+        `INSERT INTO teams (game_id, league_id) VALUES ($1, $2) RETURNING team_id;`, // Fixed $2
+        [gameId, league_id],
+      );
+      const team2Id = team2Result.rows[0].team_id;
 
-    const insertPlayers = async (playerList, teamId) => {
-      for (const player of playerList) {
-        const { player_id, goals_scored, kicked_over_fence, own_goals } = player;
-        
-        await client.query(
-          `INSERT INTO team_members (team_id, player_id, league_id) VALUES ($1, $2, $3);`,
-          [teamId, player_id, league_id]
-        );
+      const insertPlayers = async (playerList, teamId) => {
+        for (const player of playerList) {
+          const { player_id, goals_scored, kicked_over_fence, own_goals } =
+            player;
 
-        await client.query(
-          `INSERT INTO player_game_stats (game_id, player_id, goals_scored, kicked_over_fence, league_id, own_goals)
+          await client.query(
+            `INSERT INTO team_members (team_id, player_id, league_id) VALUES ($1, $2, $3);`,
+            [teamId, player_id, league_id],
+          );
+
+          await client.query(
+            `INSERT INTO player_game_stats (game_id, player_id, goals_scored, kicked_over_fence, league_id, own_goals)
            VALUES ($1, $2, $3, $4, $5, $6);`,
-          [gameId, player_id, goals_scored || 0, kicked_over_fence || 0, league_id, own_goals || 0]
+            [
+              gameId,
+              player_id,
+              goals_scored || 0,
+              kicked_over_fence || 0,
+              league_id,
+              own_goals || 0,
+            ],
+          );
+        }
+      };
+
+      await insertPlayers(teams.team1, team1Id);
+      await insertPlayers(teams.team2, team2Id);
+
+      await client.query("COMMIT");
+      res.json({ message: "Game recorded successfully", gameId });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      console.error("Error recording game:", err);
+      res
+        .status(500)
+        .json({ error: "Failed to record game. Transaction rolled back." });
+    }
+  });
+
+  router.delete("/:id", async (req, res) => {
+    const { id } = req.params;
+    const league_id = req.league_id;
+    const gameId = parseInt(id, 10);
+
+    if (isNaN(gameId)) {
+      return res.status(400).json({ error: "Invalid game ID" });
+    }
+
+    try {
+      await client.query("BEGIN");
+
+      const gameCheck = await client.query(
+        `SELECT game_id FROM games WHERE game_id = $1 AND league_id = $2`,
+        [gameId, league_id],
+      );
+
+      if (gameCheck.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "Game not found" });
+      }
+
+      const teamsResult = await client.query(
+        `SELECT team_id FROM teams WHERE game_id = $1 AND league_id = $2`,
+        [gameId, league_id],
+      );
+
+      const teamIds = teamsResult.rows.map((row) => row.team_id);
+
+      await client.query(
+        `DELETE FROM player_game_stats WHERE game_id = $1 AND league_id = $2`,
+        [gameId, league_id],
+      );
+
+      if (teamIds.length > 0) {
+        await client.query(
+          `DELETE FROM team_members WHERE team_id = ANY($1) AND league_id = $2`,
+          [teamIds, league_id],
         );
       }
-    };
 
-    await insertPlayers(teams.team1, team1Id);
-    await insertPlayers(teams.team2, team2Id);
+      await client.query(
+        `DELETE FROM teams WHERE game_id = $1 AND league_id = $2`,
+        [gameId, league_id],
+      );
 
-    await client.query('COMMIT');
-    res.json({ message: "Game recorded successfully", gameId });
+      await client.query(
+        `DELETE FROM games WHERE game_id = $1 AND league_id = $2`,
+        [gameId, league_id],
+      );
 
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error("Error recording game:", err);
-    res.status(500).json({ error: "Failed to record game. Transaction rolled back." });
-  }
-});
+      await client.query("COMMIT");
+      res.json({ message: "Game deleted successfully", gameId });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      console.error("Error deleting game:", err);
+      res
+        .status(500)
+        .json({ error: "Failed to delete game. Transaction rolled back." });
+    }
+  });
+
   return router;
 };
 
