@@ -44,23 +44,26 @@ const LeaguesRouter = (client) => {
       await client.query('BEGIN');
 
       const leagueCheck = await client.query(`
-      SELECT id FROM leagues WHERE joinCode = $1
+      SELECT id FROM leagues WHERE join_code = $1
       `, [leagueCode])
 
       if (leagueCheck.rows.length === 0) {
+        await client.query("ROLLBACK")
         return res.status(404).json({error: "league code not found"})
       }
       const leagueId = leagueCheck.rows[0].id
 
       const leaguejoin = await client.query(`
-      INSERT INTO league_ids  (uid, league_id, User, role)
+      INSERT INTO league_ids  (uid, league_id, full_name, role)
       VALUES ($1, $2, $3, $4)
       RETURNING league_id;
       `, [uid, leagueId, Name, "player"])
 
       const leagueIdAfter = leaguejoin.rows[0].league_id
+      await client.query("COMMIT")
         res.status(201).json({message: "registered success", league_id: leagueIdAfter})
     } catch (e){
+      await client.query('ROLLBACK')
       console.error("error in joining league")
       res.status(500).json({error: "server backend error"})
     }
