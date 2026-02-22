@@ -12,9 +12,7 @@ const GamesRouter = (client) => {
     if (isNaN(gameId)) {
       return res.status(400).json({ error: "Invalid game ID" });
     }
-
     try {
-      // Build query and params dynamically to avoid "g" alias errors
       let gameQuery = `
         SELECT game_id, game_date, team1_score, team2_score
         FROM games
@@ -37,7 +35,6 @@ const GamesRouter = (client) => {
 
       const gameInfo = gameResult.rows[0];
 
-      // Fetch players and stats
       const teamPlayersResult = await client.query(
         `
         SELECT t.team_id,
@@ -160,7 +157,6 @@ const GamesRouter = (client) => {
         });
       });
 
-      // Flatten the internal teams object into an array for the final response
       const formattedResponse = Object.values(games).map((game) => ({
         ...game,
         teams: Object.values(game.teams),

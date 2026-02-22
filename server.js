@@ -4,7 +4,7 @@ const { Client } = pkg;
 import cors from "cors";
 import bodyParser from "body-parser";
 import "dotenv/config";
-import createVerifyToken from "./Routers/authMiddleware.js";
+import {createVerifyToken, verifyLeague} from "./Routers/authMiddleware.js";
 import PlayerRoutes from "./Routers/playersRouter.js";
 import GameRoutes from "./Routers/gamesRouter.js";
 import AiRoutes from "./Routers/AiRouter.js";
@@ -36,13 +36,11 @@ client
     }
   });
 
-const verifyToken = createVerifyToken(client);
-app.use(verifyToken);
-
-app.use('/leagues', LeaguesRouter(client))
-app.use("/players", PlayerRoutes(client));
-app.use("/games", GameRoutes(client));
-app.use("/ai", AiRoutes(client));
+const verifyToken = createVerifyToken(client); 
+app.use('/leagues', verifyToken, LeaguesRouter(client))
+app.use("/players", verifyToken, verifyLeague, PlayerRoutes(client));
+app.use("/games", verifyToken, verifyLeague, GameRoutes(client));
+app.use("/ai", verifyToken, verifyLeague, AiRoutes(client));
 
 const PORT = process.env.PORT || 5142;
 app.listen(PORT, () => {

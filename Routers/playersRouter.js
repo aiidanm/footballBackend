@@ -95,7 +95,6 @@ const PlayerRoutes = (client) => {
     }
   });
 
-  // 2. GET SINGLE PLAYER BY ID (Detailed Game Stats)
   router.get("/:id", async (req, res) => {
     const playerId = parseInt(req.params.id, 10);
     const league_id = req.league_id;
@@ -180,7 +179,6 @@ const PlayerRoutes = (client) => {
     }
   });
 
-  // Add a new player
   router.post("/", async (req, res) => {
     const players = req.body
     const league_id = req.league_id
@@ -204,10 +202,7 @@ const PlayerRoutes = (client) => {
     }
   });
 
-  
-
-  // Update a player by ID
-  router.put("/:id", async (req, res) => {
+    router.put("/:id", async (req, res) => {
     const { id } = req.params;
     const league_id = req.league_id
     const {
@@ -240,6 +235,7 @@ const PlayerRoutes = (client) => {
       res.status(500).json({ error: "Internal server error" });
     }
   });
+
 
   return router;
 };

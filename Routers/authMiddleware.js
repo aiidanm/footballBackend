@@ -15,17 +15,19 @@ const createVerifyToken = (client) => async (req, res, next) => {
 
     const uid = decodedToken.uid;
     const result = await client.query('SELECT league_id FROM league_ids WHERE uid = $1', [uid]);
-    console.log(result)
-    if (result.rows.length === 0) {
-      return res.status(403).send("User not found in database");
-    }
-    req.league_id = result.rows[0].league_id;
+    req.league_id = result.rows.length > 0 ? result.rows[0].league_id : null;
 
     next();
   } catch (error) {
-    console.log("Error while verifying Firebase ID token or querying database:", error);
     res.status(403).send({msg : "Unauthorized", error});
   }
 };
 
-export default createVerifyToken;
+const verifyLeague = (req, res, next) => {
+  if(!req.league_id || req.league_id === 0){
+    return res.status(403).json({message: "no league id assigned to account", needsOnboarding: true})
+  }
+  next()
+}
+
+export default {createVerifyToken, verifyLeague};
