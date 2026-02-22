@@ -30,4 +30,4 @@ const verifyLeague = (req, res, next) => {
   next()
 }
 
-export default {createVerifyToken, verifyLeague};
+export {createVerifyToken, verifyLeague};
