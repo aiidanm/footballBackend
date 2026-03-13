@@ -1,4 +1,5 @@
 import admin from "../firebaseAdmin.js";
+import { getUserLeagueData } from "../utils.js";
 
 const createVerifyToken = (client) => async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -14,8 +15,9 @@ const createVerifyToken = (client) => async (req, res, next) => {
     req.user = decodedToken;
 
     const uid = decodedToken.uid;
-    const result = await client.query('SELECT league_id FROM league_ids WHERE uid = $1', [uid]);
-    req.league_id = result.rows.length > 0 ? result.rows[0].league_id : null;
+    const {league_id, role} = await getUserLeagueData(client, uid)
+    req.league_id = league_id;
+    req.role = role;
 
     next();
   } catch (error) {

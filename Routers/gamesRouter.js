@@ -172,6 +172,10 @@ const GamesRouter = (client) => {
   router.post("/", async (req, res) => {
     const { date, team1Score, team2Score, teams } = req.body;
     const league_id = req.league_id;
+    const role = req.role
+    if(role === "player"){
+      res.status(402).json({message: "user does not have permission to record games"})
+    }
 
     try {
       await client.query("BEGIN");
