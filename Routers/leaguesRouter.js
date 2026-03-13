@@ -1,6 +1,6 @@
 // routes/leagueRoutes.js
 import express from "express";
-import { getUserLeagueData } from "../utils";
+import { getUserLeagueData } from "../utils.js";
 const router = express.Router();
 
 const LeaguesRouter = (client) => {
