@@ -1,4 +1,4 @@
-const getUserLeagueData = async (client, uid) => {
+export const getUserLeagueData = async (client, uid) => {
   const result = await client.query(
     'SELECT league_id, role FROM league_ids WHERE uid = $1', 
     [uid]
@@ -10,4 +10,3 @@ const getUserLeagueData = async (client, uid) => {
 };
 
 
-module.exports = {getUserLeagueData}
