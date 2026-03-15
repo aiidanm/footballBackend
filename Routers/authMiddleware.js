@@ -13,7 +13,7 @@ const createVerifyToken = (client) => async (req, res, next) => {
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     req.user = decodedToken;
-
+    console.log(decodedToken)
     const uid = decodedToken.uid;
     const {league_id, role} = await getUserLeagueData(client, uid)
     req.league_id = league_id;
