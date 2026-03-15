@@ -83,6 +83,7 @@ const LeaguesRouter = (client) => {
 
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
+    console.log(decodedToken)
     const uid = decodedToken.uid;
 
     const dbData = await getUserLeagueData(client, uid);
