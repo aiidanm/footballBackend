@@ -1,6 +1,7 @@
 // routes/leagueRoutes.js
 import express from "express";
 import { getUserLeagueData } from "../utils.js";
+import admin from "../firebaseAdmin.js"
 const router = express.Router();
 
 const LeaguesRouter = (client) => {
