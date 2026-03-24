@@ -1,6 +1,6 @@
 export const getUserLeagueData = async (client, uid) => {
   const result = await client.query(
-    'SELECT league_id, role FROM league_ids WHERE uid = $1', 
+    'SELECT league_id, role, full_name, email FROM users WHERE uid = $1', 
     [uid]
   );
   if (result.rows.length > 0) {

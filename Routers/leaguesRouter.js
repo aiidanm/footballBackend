@@ -6,22 +6,21 @@ const router = express.Router();
 
 const LeaguesRouter = (client) => {
   router.post("/", async (req, res) => {
-    const { uid, userName } = req.body;
+    const { uid, playerName } = req.body;
 
-    if (!uid || !userName) {
-      return res.status(400).json({ error: "Missing uid or userName" });
+    if (!uid || !playerName) {
+      return res.status(400).json({ error: "Missing uid or playerName" });
     }
 
     try {
-      // 2. Use placeholders ($1, $2) to prevent SQL injection
-      // We use "user_name" as a column name since "User" is often a reserved word in SQL
+  
       const query = `
-        INSERT INTO league_ids (uid, player_name)
+        INSERT INTO users (uid, full_name)
         VALUES ($1, $2) 
         RETURNING league_id;
       `;
       
-      const result = await client.query(query, [uid, userName]);
+      const result = await client.query(query, [uid, playerName]);
 
       // 3. Send the new ID back to the frontend
       const newLeagueId = result.rows[0].league_id;
@@ -38,8 +37,8 @@ const LeaguesRouter = (client) => {
 
 
   router.post("/join", async (req, res) => {
-    const {uid,leagueCode, Name} = req.body
-    if(!uid || !leagueCode || !Name ){
+    const {uid,leagueCode, playerName, email} = req.body
+    if(!uid || !leagueCode || !playerName ){
       return res.status(400).json({error: "missing data in request"})
     }
     try {
@@ -56,10 +55,10 @@ const LeaguesRouter = (client) => {
       const leagueId = leagueCheck.rows[0].id
 
       const leaguejoin = await client.query(`
-      INSERT INTO league_ids  (uid, league_id, full_name, role)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO users  (uid, league_id, full_name, role, email)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING league_id;
-      `, [uid, leagueId, Name, "player"])
+      `, [uid, leagueId, playerName, "player", email])
 
       const leagueIdAfter = leaguejoin.rows[0].league_id
       await client.query("COMMIT")
@@ -94,7 +93,9 @@ const LeaguesRouter = (client) => {
       user: {
         uid: uid,
         role: dbData.role,
-        league_id: dbData.league_id
+        league_id: dbData.league_id, 
+        playerName: dbData.full_name,
+        email: dbData.email
       }
     });
 
