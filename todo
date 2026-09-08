@@ -1,0 +1,1 @@
+finishing adding in league name to all api funcs, need a join on the login func to send this back with the user

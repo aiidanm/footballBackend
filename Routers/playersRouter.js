@@ -3,10 +3,10 @@ import express from "express";
 const router = express.Router();
 
 const PlayerRoutes = (client) => {
-   router.get("/", async (req, res) => {
+  router.get("/", async (req, res) => {
     const league_id = req.league_id;
     const year = req.query.year ? parseInt(req.query.year, 10) : null;
-    
+
     const queryParams = [league_id];
     let yearFilterSub = "";
     let yearFilterMain = "";
@@ -99,7 +99,7 @@ const PlayerRoutes = (client) => {
     const playerId = parseInt(req.params.id, 10);
     const league_id = req.league_id;
     const year = req.query.year ? parseInt(req.query.year, 10) : null;
-    
+
     if (isNaN(playerId)) {
       return res.status(400).json({ error: "Invalid player ID" });
     }
@@ -107,7 +107,7 @@ const PlayerRoutes = (client) => {
     try {
       const playerCheck = await client.query(
         `SELECT * FROM players WHERE player_id = $1 AND league_id = $2`,
-        [playerId, league_id]
+        [playerId, league_id],
       );
 
       if (playerCheck.rows.length === 0) {
@@ -155,24 +155,23 @@ const PlayerRoutes = (client) => {
         ORDER BY pgd.game_date DESC;`;
 
       const statsResult = await client.query(statsQuery, queryParams);
-      
+
       // Since the first row contains the player info, and stats are joined:
       const playerInfo = playerCheck.rows[0];
       const gameHistory = statsResult.rows
-        .filter(row => row.game_id !== null) // Remove the empty join row if player hasn't played
-        .map(row => ({
+        .filter((row) => row.game_id !== null) // Remove the empty join row if player hasn't played
+        .map((row) => ({
           game_id: row.game_id,
           game_date: row.game_date,
           goals_scored: row.goals_scored,
           kicked_over_fence: row.kicked_over_fence,
-          is_winning_team: row.is_winning_team
+          is_winning_team: row.is_winning_team,
         }));
 
       res.json({
         ...playerInfo,
-        stats: gameHistory
+        stats: gameHistory,
       });
-
     } catch (err) {
       console.error("Error fetching player details:", err.stack);
       res.status(500).json({ error: "Internal server error" });
@@ -180,21 +179,30 @@ const PlayerRoutes = (client) => {
   });
 
   router.post("/", async (req, res) => {
-    const players = req.body
-    const league_id = req.league_id
-    if(!Array.isArray(players)){
-      return res.status(500).json({error: "array not provided"})
+    const players = req.body;
+    const league_id = req.league_id;
+    if (!Array.isArray(players)) {
+      return res.status(500).json({ error: "array not provided" });
     }
 
     try {
-      const placeholders = players.map((player, index) => `($${index * 3 + 1}, $${index * 3 + 2}, $${index * 3 + 3})`).join(', ')
-      const values = players.flatMap(p => [p.name, p.preferred_position, league_id])
+      const placeholders = players
+        .map(
+          (player, index) =>
+            `($${index * 3 + 1}, $${index * 3 + 2}, $${index * 3 + 3})`,
+        )
+        .join(", ");
+      const values = players.flatMap((p) => [
+        p.name,
+        p.preferred_position,
+        league_id,
+      ]);
       const query = `
       INSERT INTO players (player_name, preferred_position, league_id) 
       VALUES ${placeholders} 
       RETURNING *
     `;
-      const result = await client.query(query, values)
+      const result = await client.query(query, values);
       res.json(result.rows);
     } catch (err) {
       console.error("Error adding player", err.stack);
@@ -202,9 +210,54 @@ const PlayerRoutes = (client) => {
     }
   });
 
-    router.put("/:id", async (req, res) => {
+  router.put("/", async (req, res) => {
+    const players = req.body;
+    const league_id = req.league_id;
+    if (!Array.isArray(players)) {
+      return res.status(500).json({ error: "array not provided" });
+    }
+
+    if (players.length === 0) {
+      return res.json([]);
+    }
+
+    try {
+      const placeholders = players
+        .map(
+          (_, index) =>
+            `($${index * 3 + 1}::int, $${index * 3 + 2}::text, $${index * 3 + 3}::text)`,
+        )
+        .join(", ");
+      const values = [
+        ...players.flatMap((p) => [
+          p.id || p.player_id,
+          p.name || p.player_name || null,
+          p.preferred_position || null,
+        ]),
+        league_id,
+      ];
+      const leagueIdParamIndex = players.length * 3 + 1;
+
+      const query = `
+        UPDATE players AS p
+        SET 
+          player_name = COALESCE(v.player_name, p.player_name),
+          preferred_position = COALESCE(v.preferred_position, p.preferred_position)
+        FROM (VALUES ${placeholders}) AS v(player_id, player_name, preferred_position)
+        WHERE p.player_id = v.player_id AND p.league_id = $${leagueIdParamIndex}
+        RETURNING p.*;
+      `;
+      const result = await client.query(query, values);
+      res.json(result.rows);
+    } catch (err) {
+      console.error("Error updating players", err.stack);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  router.put("/:id", async (req, res) => {
     const { id } = req.params;
-    const league_id = req.league_id
+    const league_id = req.league_id;
     const {
       name,
       preferred_position,
@@ -226,8 +279,8 @@ const PlayerRoutes = (client) => {
           over_fence,
           wins,
           league_id,
-          id
-        ]
+          id,
+        ],
       );
       res.json(result.rows);
     } catch (err) {
@@ -236,8 +289,7 @@ const PlayerRoutes = (client) => {
     }
   });
 
-
   return router;
 };
 
-export default PlayerRoutes
+export default PlayerRoutes;

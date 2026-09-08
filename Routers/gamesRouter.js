@@ -293,7 +293,6 @@ const GamesRouter = (client) => {
       res.json({ message: "Game deleted successfully", gameId });
     } catch (err) {
       await client.query("ROLLBACK");
-      console.error("Error deleting game:", err);
       res
         .status(500)
         .json({ error: "Failed to delete game. Transaction rolled back." });

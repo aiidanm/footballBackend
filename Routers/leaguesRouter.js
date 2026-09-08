@@ -6,7 +6,7 @@ const router = express.Router();
 
 const LeaguesRouter = (client) => {
   router.post("/", async (req, res) => {
-    const { uid, playerName } = req.body;
+    const { uid, playerName, league_name} = req.body;
 
     if (!uid || !playerName) {
       return res.status(400).json({ error: "Missing uid or playerName" });
@@ -15,15 +15,15 @@ const LeaguesRouter = (client) => {
     try {
   
       const query = `
-        INSERT INTO users (uid, full_name)
-        VALUES ($1, $2) 
-        RETURNING league_id;
+        INSERT INTO leagues (league_name)
+        VALUES ($1) 
+        RETURNING id;
       `;
       
       const result = await client.query(query, [uid, playerName]);
 
       // 3. Send the new ID back to the frontend
-      const newLeagueId = result.rows[0].league_id;
+      const newLeagueId = result.rows[0].id;
       res.status(201).json({ 
         message: "League registered successfully", 
         league_id: newLeagueId 
@@ -45,7 +45,7 @@ const LeaguesRouter = (client) => {
       await client.query('BEGIN');
 
       const leagueCheck = await client.query(`
-      SELECT id FROM leagues WHERE join_code = $1
+      SELECT id, league_name FROM leagues WHERE join_code = $1
       `, [leagueCode])
 
       if (leagueCheck.rows.length === 0) {
@@ -83,11 +83,9 @@ const LeaguesRouter = (client) => {
 
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
-    console.log(decodedToken)
     const uid = decodedToken.uid;
 
     const dbData = await getUserLeagueData(client, uid);
-
     return res.status(200).json({
       message: "Login successful",
       user: {
@@ -95,7 +93,8 @@ const LeaguesRouter = (client) => {
         role: dbData.role,
         league_id: dbData.league_id, 
         playerName: dbData.full_name,
-        email: dbData.email
+        email: dbData.email,
+        league_name: dbData.league_name
       }
     });
 
@@ -103,8 +102,37 @@ const LeaguesRouter = (client) => {
     return res.status(403).json({ error: "Unauthorized" });
   }
   })
+
+
+  router.post("/leagueCode", async (req, res) => {
+    const {uid,leagueId} = req.body
+    console.log(req.body)
+    if(!uid || !leagueId){
+      return res.status(400).json({error: "missing data in request"})
+    }
+    try {
+      await client.query('BEGIN');
+
+      const leagueCheck = await client.query(`
+      SELECT join_code FROM leagues WHERE id = $1
+      `, [leagueId])
+
+      if(leagueCheck.rows.length === 0){
+        await client.query("ROLLBACK")
+        return res.status(404).json({error: "league id not found"})
+      }
+
+      let leagueCode = leagueCheck.rows[0].join_code
+      
+       await client.query("COMMIT")
+      res.status(201).json({message: "league code success", league_code: leagueCode})
+    } catch (e){
+
+    }
+  })
   return router;
 
+  
 
 };
 
