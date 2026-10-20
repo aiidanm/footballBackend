@@ -14,21 +14,33 @@ const createVerifyToken = (client) => async (req, res, next) => {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     req.user = decodedToken;
     const uid = decodedToken.uid;
-    const {league_id, role} = await getUserLeagueData(client, uid)
+    const { league_id, role } = await getUserLeagueData(client, uid);
     req.league_id = league_id;
     req.role = role;
 
     next();
   } catch (error) {
-    res.status(403).send({msg : "Unauthorized", error});
+    console.error(
+      "Token verification failed:",
+      error?.code || error?.message || error,
+    );
+    res.status(403).json({
+      msg: "Unauthorized",
+      code: error?.code || "AUTH_TOKEN_INVALID",
+    });
   }
 };
 
 const verifyLeague = (req, res, next) => {
-  if(!req.league_id || req.league_id === 0){
-    return res.status(403).json({message: "no league id assigned to account", needsOnboarding: true})
+  if (!req.league_id || req.league_id === 0) {
+    return res
+      .status(403)
+      .json({
+        message: "no league id assigned to account",
+        needsOnboarding: true,
+      });
   }
-  next()
-}
+  next();
+};
 
-export {createVerifyToken, verifyLeague};
+export { createVerifyToken, verifyLeague };
